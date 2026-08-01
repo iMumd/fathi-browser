@@ -1,0 +1,121 @@
+{
+  "name": "fathi",
+  "productName": "Fathi",
+  "version": "1.0.0",
+  "description": "Private browser with a unique identity in every tab",
+  "author": {
+    "name": "iMumd",
+    "email": "hi@mumd.dev",
+    "url": "https://github.com/iMumd"
+  },
+  "homepage": "https://github.com/iMumd/fathi-browser",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iMumd/fathi-browser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iMumd/fathi-browser/issues"
+  },
+  "keywords": [
+    "browser",
+    "privacy",
+    "fingerprint",
+    "electron"
+  ],
+  "license": "MIT",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node tools/make-icons.js && node tools/make-installer-art.js",
+    "dist:win": "electron-builder --win nsis portable --x64",
+    "dist:linux": "electron-builder --linux dir tar.gz --x64",
+    "dist:mac": "electron-builder --mac zip --x64 --arm64",
+    "dist:all": "npm run dist:win && npm run dist:linux && npm run dist:mac"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.12",
+    "sharp": "^0.35.5"
+  },
+  "build": {
+    "appId": "com.fathi.browser",
+    "productName": "Fathi",
+    "copyright": "Copyright 2026 iMumd",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "src/main/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Fathi",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "artifactName": "Fathi-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": true
+    },
+    "portable": {
+      "artifactName": "Fathi-Portable-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "dir",
+        "tar.gz"
+      ],
+      "icon": "build/icons",
+      "category": "Network;WebBrowser",
+      "executableName": "fathi",
+      "artifactName": "Fathi-${version}-linux-${arch}.${ext}",
+      "desktop": {
+        "Name": "Fathi",
+        "Comment": "Private browser with per-tab fingerprints",
+        "StartupWMClass": "Fathi"
+      }
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.utilities",
+      "artifactName": "Fathi-${version}-mac-${arch}.${ext}"
+    }
+  }
+}
