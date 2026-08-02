@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Fathi cockatiel head only, transparent background, muted theme blue -->
+  <defs>
+    <mask id="head-mask">
+      <rect x="0" y="0" width="1024" height="1024" fill="#000"/>
+      <g fill="#fff">
+        <!-- crest feathers -->
+        <path d="M398 452 C344 356 306 250 298 148 C368 236 416 338 462 448 Z"/>
+        <path d="M468 402 C466 292 486 190 522 104 C562 196 574 306 560 414 Z"/>
+        <path d="M596 424 C644 338 704 264 770 222 C752 318 718 402 676 470 Z"/>
+        <!-- head -->
+        <circle cx="520" cy="606" r="242"/>
+        <!-- beak -->
+        <path d="M726 552 C790 566 820 618 808 672 C798 718 760 742 722 726 C748 696 754 650 736 606 Z"/>
+      </g>
+      <!-- cut-outs: eye + cheek patch -->
+      <circle cx="586" cy="562" r="36" fill="#000"/>
+      <circle cx="648" cy="700" r="56" fill="#000"/>
+    </mask>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" fill="#7FA6C9" mask="url(#head-mask)"/>
+</svg>
