@@ -1,44 +1,26 @@
-const DEVICES = [
-  /* ------------------------------------------------------------- iPhone */
+
+  /* ------------------------------------------------------------ Samsung */
   {
-    id: 'iphone-15-pro-max', name: 'iPhone 15 Pro Max', group: 'apple', mobile: true, os: 'ios',
-    width: 430, height: 932, dpr: 3, touch: 5, model: 'iPhone', osVersion: '17.5',
-    ua: IOS_UAS['17.5']('iPhone'), platform: 'iPhone', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
+    id: 'galaxy-s24-ultra', name: 'Galaxy S24 Ultra', group: 'samsung', mobile: true, os: 'android',
+    width: 412, height: 915, dpr: 3.5, touch: 5, model: 'SM-S928B', osVersion: '14',
+    androidVersion: '14', platform: 'Linux armv8l',
+    gpu: { vendor: 'Google Inc. (Qualcomm)', renderer: 'ANGLE (Qualcomm, Adreno (TM) 750, OpenGL ES 3.2)' }
   },
   {
-    id: 'iphone-15-pro', name: 'iPhone 15 Pro', group: 'apple', mobile: true, os: 'ios',
-    width: 393, height: 852, dpr: 3, touch: 5, model: 'iPhone', osVersion: '17.5',
-    ua: IOS_UAS['17.5']('iPhone'), platform: 'iPhone', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
+    id: 'galaxy-s23', name: 'Galaxy S23', group: 'samsung', mobile: true, os: 'android',
+    width: 360, height: 780, dpr: 3, touch: 5, model: 'SM-S911B', osVersion: '13',
+    androidVersion: '13', platform: 'Linux armv8l',
+    gpu: { vendor: 'Google Inc. (Qualcomm)', renderer: 'ANGLE (Qualcomm, Adreno (TM) 740, OpenGL ES 3.2)' }
   },
   {
-    id: 'iphone-14', name: 'iPhone 14', group: 'apple', mobile: true, os: 'ios',
-    width: 390, height: 844, dpr: 3, touch: 5, model: 'iPhone', osVersion: '16.6',
-    ua: IOS_UAS['16.6']('iPhone'), platform: 'iPhone', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
+    id: 'galaxy-a54', name: 'Galaxy A54', group: 'samsung', mobile: true, os: 'android',
+    width: 412, height: 915, dpr: 2.625, touch: 5, model: 'SM-A546B', osVersion: '13',
+    androidVersion: '13', platform: 'Linux armv8l',
+    gpu: { vendor: 'Google Inc. (ARM)', renderer: 'ANGLE (ARM, Mali-G68, OpenGL ES 3.2)' }
   },
   {
-    id: 'iphone-13-mini', name: 'iPhone 13 mini', group: 'apple', mobile: true, os: 'ios',
-    width: 375, height: 812, dpr: 3, touch: 5, model: 'iPhone', osVersion: '17.5',
-    ua: IOS_UAS['17.5']('iPhone'), platform: 'iPhone', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
-  },
-  {
-    id: 'iphone-se', name: 'iPhone SE (3rd gen)', group: 'apple', mobile: true, os: 'ios',
-    width: 375, height: 667, dpr: 2, touch: 5, model: 'iPhone', osVersion: '17.5',
-    ua: IOS_UAS['17.5']('iPhone'), platform: 'iPhone', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
-  },
-  {
-    id: 'ipad-pro-12', name: 'iPad Pro 12.9"', group: 'apple', mobile: true, os: 'ios',
-    width: 1024, height: 1366, dpr: 2, touch: 5, model: 'iPad', osVersion: '17.5',
-    ua: IOS_UAS['17.5']('iPad'), platform: 'iPad', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
-  },
-  {
-    id: 'ipad-air', name: 'iPad Air', group: 'apple', mobile: true, os: 'ios',
-    width: 820, height: 1180, dpr: 2, touch: 5, model: 'iPad', osVersion: '17.5',
-    ua: IOS_UAS['17.5']('iPad'), platform: 'iPad', vendor: 'Apple Computer, Inc.',
-    gpu: { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
+    id: 'galaxy-tab-s9', name: 'Galaxy Tab S9', group: 'samsung', mobile: true, os: 'android',
+    width: 800, height: 1280, dpr: 2, touch: 5, model: 'SM-X710', osVersion: '13',
+    androidVersion: '13', platform: 'Linux armv8l',
+    gpu: { vendor: 'Google Inc. (Qualcomm)', renderer: 'ANGLE (Qualcomm, Adreno (TM) 740, OpenGL ES 3.2)' }
   },
