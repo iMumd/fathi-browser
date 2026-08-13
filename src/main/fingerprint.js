@@ -1,38 +1,38 @@
-};
-
-const PLUGIN_SETS = [
-  ['PDF Viewer', 'Chrome PDF Viewer', 'Chromium PDF Viewer', 'Microsoft Edge PDF Viewer', 'WebKit built-in PDF'],
-  ['PDF Viewer', 'Chrome PDF Viewer', 'Chromium PDF Viewer'],
-  ['PDF Viewer', 'Chrome PDF Viewer']
-];
-
-/* --------------------------------------------------------------- helpers */
-
-function hash32(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h >>> 0;
 }
 
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+function shuffle(rng, arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
-function pick(rng, arr) { return arr[Math.floor(rng() * arr.length) % arr.length]; }
+function randHex(bytes) { return crypto.randomBytes(bytes).toString('hex'); }
 
-function pickWeighted(rng, keys) {
-  const total = keys.reduce((s, k) => s + OS_PROFILES[k].weight, 0);
-  let r = rng() * total;
-  for (const k of keys) {
-    r -= OS_PROFILES[k].weight;
-    if (r <= 0) return k;
-  }
-  return keys[0];
+/* ------------------------------------------------------------- generator */
+
+function generate(opts) {
+  const options = typeof opts === 'string' ? { seed: opts } : (opts || {});
+  const device = devices.get(options.deviceId);
+  const seed = options.seed ? hash32(String(options.seed)) : crypto.randomBytes(4).readUInt32LE(0);
+  const rng = mulberry32(seed);
+
+  const osKey = pickWeighted(rng, Object.keys(OS_PROFILES));
+  const os = OS_PROFILES[osKey];
+  const lang = pick(rng, LANG_POOL);
+  const ver = REAL_CHROME - Math.floor(rng() * 7);           // last ~7 majors
+  const fullVer = `${ver}.0.${6482 + Math.floor(rng() * 60)}.${40 + Math.floor(rng() * 90)}`;
+
+  const ua = `Mozilla/5.0 (${os.uaOs}) AppleWebKit/537.36 (KHTML, like Gecko) ` +
+    `Chrome/${ver}.0.0.0 Safari/537.36`;
+
+  const [sw, sh, dprRaw] = pick(rng, os.screens);
+  const dpr = typeof dprRaw === 'number' ? dprRaw : 1;
+
+  const gpu = pick(rng, os.gpus);
+  const cores = pick(rng, os.cores);
+  const memory = pick(rng, os.memory);
+  const plugins = pick(rng, PLUGIN_SETS);
+  const platformVersion = pick(rng, os.platformVersions);
