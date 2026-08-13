@@ -1,38 +1,48 @@
-}
 
-function shuffle(rng, arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+  const brands = shuffle(rng, [
+    { brand: 'Not:A-Brand', version: '99' },
+    { brand: 'Google Chrome', version: String(ver) },
+    { brand: 'Chromium', version: String(ver) }
+  ]);
+  const fullVersionList = shuffle(rng, [
+    { brand: 'Not:A-Brand', version: '99.0.0.0' },
+    { brand: 'Google Chrome', version: fullVer },
+    { brand: 'Chromium', version: fullVer }
+  ]);
 
-function randHex(bytes) { return crypto.randomBytes(bytes).toString('hex'); }
+  const fonts = shuffle(rng, FONT_POOL[osKey]).slice(0, 8 + Math.floor(rng() * 7));
 
-/* ------------------------------------------------------------- generator */
+  const fp = {
+    id: randHex(8),
+    seed,
+    enabled: true,
+    createdAt: Date.now(),
 
-function generate(opts) {
-  const options = typeof opts === 'string' ? { seed: opts } : (opts || {});
-  const device = devices.get(options.deviceId);
-  const seed = options.seed ? hash32(String(options.seed)) : crypto.randomBytes(4).readUInt32LE(0);
-  const rng = mulberry32(seed);
+    // navigator
+    ua,
+    appVersion: ua.replace(/^Mozilla\//, ''),
+    appName: 'Netscape',
+    appCodeName: 'Mozilla',
+    platform: os.platform,
+    vendor: 'Google Inc.',
+    vendorSub: '',
+    productSub: '20030107',
+    oscpu: undefined,
+    language: lang.language,
+    languages: lang.languages,
+    doNotTrack: null,
+    hardwareConcurrency: cores,
+    deviceMemory: memory,
+    maxTouchPoints: 0,
+    webdriver: false,
 
-  const osKey = pickWeighted(rng, Object.keys(OS_PROFILES));
-  const os = OS_PROFILES[osKey];
-  const lang = pick(rng, LANG_POOL);
-  const ver = REAL_CHROME - Math.floor(rng() * 7);           // last ~7 majors
-  const fullVer = `${ver}.0.${6482 + Math.floor(rng() * 60)}.${40 + Math.floor(rng() * 90)}`;
-
-  const ua = `Mozilla/5.0 (${os.uaOs}) AppleWebKit/537.36 (KHTML, like Gecko) ` +
-    `Chrome/${ver}.0.0.0 Safari/537.36`;
-
-  const [sw, sh, dprRaw] = pick(rng, os.screens);
-  const dpr = typeof dprRaw === 'number' ? dprRaw : 1;
-
-  const gpu = pick(rng, os.gpus);
-  const cores = pick(rng, os.cores);
-  const memory = pick(rng, os.memory);
-  const plugins = pick(rng, PLUGIN_SETS);
-  const platformVersion = pick(rng, os.platformVersions);
+    // client hints
+    uaBrands: brands,
+    uaFullVersionList: fullVersionList,
+    uaFullVersion: fullVer,
+    uaMobile: false,
+    uaDataPlatform: os.uaDataPlatform,
+    platformVersion,
+    architecture: os.architecture,
+    bitness: os.bitness,
+    wow64: os.wow64,
