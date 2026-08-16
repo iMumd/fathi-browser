@@ -1,45 +1,41 @@
-function findZip(buf) {
-  for (let i = 0; i < Math.min(buf.length - 4, 4096); i++) {
-    if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x03 && buf[i + 3] === 0x04) {
-      return buf.subarray(i);
-    }
+
+async function loadAllInto(ses) {
+  const cfg = require('./settings').get();
+  const results = [];
+  for (const ext of cfg.extensions || []) {
+    if (ext.disabled) continue;
+    const dir = ext.path || path.join(extRoot(), ext.id);
+    if (!fs.existsSync(path.join(dir, 'manifest.json'))) continue;
+    results.push(await loadInto(ses, dir));
   }
-  return buf;
+  return results;
 }
 
-async function downloadCrx(id) {
-  const url = 'https://clients2.google.com/service/update2/crx' +
-    '?response=redirect&os=win&arch=x64&os_ver=10.0&nacl_arch=x86-64' +
-    '&prod=chromiumcrx&prodchannel=unknown&prodversion=' + (process.versions.chrome || '140.0.0.0') +
-    '&acceptformat=crx2,crx3&x=id%3D' + id + '%26uc';
+/** Install from a store URL/ID (or a local .crx path). Returns extension record. */
+async function install(input, sessions) {
+  const settings = require('./settings');
 
-  const res = await net.fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`فشل التنزيل (HTTP ${res.status})`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 100) throw new Error('ملف الإضافة غير صالح');
-  return buf;
-}
+  let dir;
+  let id;
 
-function readManifest(dir) {
-  try {
-    const m = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
-    return { name: m.name || path.basename(dir), version: m.version || '0', manifest: m };
-  } catch {
-    return null;
+  if (fs.existsSync(String(input)) && String(input).toLowerCase().endsWith('.crx')) {
+    const buf = fs.readFileSync(String(input));
+    const zip = new AdmZip(findZip(stripCrx(buf)));
+    const tmp = path.join(extRoot(), 'local-' + Date.now());
+    fs.mkdirSync(tmp, { recursive: true });
+    zip.extractAllTo(tmp, true);
+    const man = readManifest(tmp);
+    if (!man) throw new Error('الإضافة لا تحتوي manifest.json صالح');
+    id = 'local-' + Date.now();
+    dir = tmp;
+  } else {
+    id = extractId(input);
+    if (!id) throw new Error('معرّف الإضافة غير صالح (يجب أن يكون 32 حرفاً من a-p)');
+    const crx = await downloadCrx(id);
+    const zipBuf = findZip(stripCrx(crx));
+    dir = path.join(extRoot(), id);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    new AdmZip(zipBuf).extractAllTo(dir, true);
+    if (!readManifest(dir)) throw new Error('الإضافة غير صالحة أو غير متاحة في المتجر');
   }
-}
-
-/** Load one extension directory into a session (idempotent). */
-async function loadInto(ses, dir) {
-  try {
-    if (!ses.extensions || typeof ses.extensions.loadExtension !== 'function') {
-      return { ok: false, error: 'Electron build has no extension API' };
-    }
-    const loaded = await ses.extensions.loadExtension(dir, { allowFileAccess: true });
-    return { ok: true, id: loaded && loaded.id };
-  } catch (e) {
-    const msg = String(e && e.message || e);
-    if (/already loaded|already exists/i.test(msg)) return { ok: true, duplicate: true };
-    return { ok: false, error: msg };
-  }
-}
