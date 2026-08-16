@@ -1,3 +1,71 @@
+'use strict';
+/**
+ * Session factory / hardening.
+ *
+ * Every tab uses an in-memory session (partition without a "persist:" prefix).
+ * This module attaches everything that makes the tab look like its own real
+ * browser: request headers, UA, client hints, language, permissions, download
+ * sandboxing and proxy.
+ */
+const path = require('node:path');
+const proxyMgr = require('./proxy');
+const extMgr = require('./extensions');
+const settings = require('./settings');
+
+/* ------------------------------------------------------------ header spoof */
+
+function buildClientHints(fp) {
+  const brands = (fp.uaBrands || []).map((b) => `"${b.brand}";v="${b.version}"`).join(', ');
+  return {
+    'sec-ch-ua': brands,
+    'sec-ch-ua-mobile': fp.uaMobile ? '?1' : '?0',
+    'sec-ch-ua-platform': `"${fp.uaDataPlatform}"`,
+    'sec-ch-ua-platform-version': `"${fp.platformVersion}"`,
+    'sec-ch-ua-arch': `"${fp.architecture}"`,
+    'sec-ch-ua-bitness': `"${fp.bitness}"`,
+    'sec-ch-ua-model': '""',
+    'sec-ch-ua-full-version': `"${fp.uaFullVersion}"`,
+    'sec-ch-ua-full-version-list': (fp.uaFullVersionList || [])
+      .map((b) => `"${b.brand}";v="${b.version}"`).join(', ')
+  };
+}
+
+function acceptLanguage(fp) {
+  const langs = fp.languages || [fp.language];
+  return langs.map((l, i) => (i === 0 ? l : `${l};q=${Math.max(0.1, 1 - i * 0.1).toFixed(1)}`)).join(',');
+}
+
+/* ------------------------------------------------------------ certificate */
+
+/**
+ * Optional: trust certificates issued by Burp Suite's PortSwigger CA so HTTPS
+ * traffic can be intercepted without installing anything system-wide.
+ * Only active when proxy.trustBurpCert is on; every other cert uses Chromium's
+ * normal verification.
+ */
+function applyCertTrust(ses) {
+  try {
+    const cfg = settings.get().proxy || {};
+    if (!cfg.trustBurpCert) {
+      ses.setCertificateVerifyProc(null);
+      return;
+    }
+    ses.setCertificateVerifyProc((request, callback) => {
+      const c = request.certificate || {};
+      const names = [
+        c.issuerName,
+        c.issuer && c.issuer.commonName,
+        c.issuer && c.issuer.organizationName,
+        c.subjectName,
+        c.subject && c.subject.commonName
+      ].filter(Boolean).join(' ');
+      if (/portswigger/i.test(names)) return callback(0);
+      callback(-3); // fall back to the default verification
+    });
+  } catch (e) {
+    console.error('[session] cert trust', e);
+  }
+}
 
 /* --------------------------------------------------------------- configure */
 
@@ -28,3 +96,39 @@ function configureSession(ses, fp, partition, opts = {}) {
   } catch (e) { console.error('[session] header hook', e); }
 
   try { ses.setUserAgent(fp.ua, fp.language); } catch {}
+
+  /* ---- permissions: deny everything that could de-anonymise the tab */
+  try {
+    const ALLOWED = new Set(['clipboard-sanitized-write', 'fullscreen', 'pointerLock']);
+    ses.setPermissionRequestHandler((wc, permission, callback) => callback(ALLOWED.has(permission)));
+    ses.setPermissionCheckHandler((wc, permission) => ALLOWED.has(permission));
+  } catch {}
+
+  /* ---- downloads: temp dir only, wiped on exit */
+  if (downloadDir) {
+    try {
+      ses.on('will-download', (event, item) => {
+        try {
+          const name = item.getFilename() || `file-${Date.now()}`;
+          item.setSavePath(path.join(downloadDir, name));
+        } catch {}
+      });
+    } catch {}
+  }
+
+  /* ---- proxy */
+  if (proxy) {
+    try { proxyMgr.applyTo(ses, partition).catch(() => {}); } catch {}
+  }
+
+  applyCertTrust(ses);
+
+  /* ---- extensions for this session (best effort, async) */
+  if (extensions) {
+    try { extMgr.loadAllInto(ses).catch(() => {}); } catch {}
+  }
+
+  return ses;
+}
+
+module.exports = { configureSession, applyCertTrust, buildClientHints, acceptLanguage };
