@@ -1,41 +1,48 @@
 
-async function loadAllInto(ses) {
-  const cfg = require('./settings').get();
-  const results = [];
-  for (const ext of cfg.extensions || []) {
-    if (ext.disabled) continue;
-    const dir = ext.path || path.join(extRoot(), ext.id);
-    if (!fs.existsSync(path.join(dir, 'manifest.json'))) continue;
-    results.push(await loadInto(ses, dir));
-  }
-  return results;
+  const man = readManifest(dir);
+  const record = {
+    id,
+    name: man ? man.name : id,
+    version: man ? man.version : '0',
+    path: dir,
+    installedAt: Date.now(),
+    source: 'store'
+  };
+
+  const cfg = settings.get();
+  const list = (cfg.extensions || []).filter((e) => e.id !== id);
+  list.push(record);
+  settings.save({ extensions: list });
+
+  const loadResults = [];
+  for (const [, rec] of sessions) loadResults.push(await loadInto(rec.ses, dir));
+
+  return { record, loaded: loadResults.filter((r) => r.ok).length, sessions: sessions.size };
 }
 
-/** Install from a store URL/ID (or a local .crx path). Returns extension record. */
-async function install(input, sessions) {
+async function installUnpacked(parentWindow, sessions) {
   const settings = require('./settings');
+  const res = await dialog.showOpenDialog(parentWindow || BrowserWindow.getFocusedWindow(), {
+    title: 'اختر مجلد إضافة غير مضغوطة',
+    properties: ['openDirectory']
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
 
-  let dir;
-  let id;
+  const dir = res.filePaths[0];
+  const man = readManifest(dir);
+  if (!man) throw new Error('المجلد لا يحتوي manifest.json صالح');
 
-  if (fs.existsSync(String(input)) && String(input).toLowerCase().endsWith('.crx')) {
-    const buf = fs.readFileSync(String(input));
-    const zip = new AdmZip(findZip(stripCrx(buf)));
-    const tmp = path.join(extRoot(), 'local-' + Date.now());
-    fs.mkdirSync(tmp, { recursive: true });
-    zip.extractAllTo(tmp, true);
-    const man = readManifest(tmp);
-    if (!man) throw new Error('الإضافة لا تحتوي manifest.json صالح');
-    id = 'local-' + Date.now();
-    dir = tmp;
-  } else {
-    id = extractId(input);
-    if (!id) throw new Error('معرّف الإضافة غير صالح (يجب أن يكون 32 حرفاً من a-p)');
-    const crx = await downloadCrx(id);
-    const zipBuf = findZip(stripCrx(crx));
-    dir = path.join(extRoot(), id);
-    fs.rmSync(dir, { recursive: true, force: true });
-    fs.mkdirSync(dir, { recursive: true });
-    new AdmZip(zipBuf).extractAllTo(dir, true);
-    if (!readManifest(dir)) throw new Error('الإضافة غير صالحة أو غير متاحة في المتجر');
-  }
+  const id = 'unpacked-' + path.basename(dir).replace(/[^a-zA-Z0-9_-]/g, '') + '-' + Date.now();
+  const record = {
+    id, name: man.name, version: man.version, path: dir,
+    installedAt: Date.now(), source: 'unpacked'
+  };
+
+  const cfg = settings.get();
+  const list = (cfg.extensions || []).filter((e) => e.path !== dir);
+  list.push(record);
+  settings.save({ extensions: list });
+
+  const loadResults = [];
+  for (const [, rec] of sessions) loadResults.push(await loadInto(rec.ses, dir));
+  return { record, loaded: loadResults.filter((r) => r.ok).length };
