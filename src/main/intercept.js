@@ -1,37 +1,33 @@
-'use strict';
-/**
- * Fathi interceptor. Pause web requests and let the UI edit, forward or drop
- * them before they leave the tab.
- *
- * Implemented with the Chrome DevTools Protocol "Fetch" domain on each tab's
- * guest WebContents, so it works together with the Burp proxy (Fathi pauses
- * first, then the request goes on to Burp exactly as edited).
- */
-const settings = require('./settings');
-
-let win = null;
-let enabled = false;
-
-const guests = new Map();       // wcId -> webContents
-const paused = new Map();       // requestId -> record
-const wired = new WeakSet();    // debugger objects with listeners
-const enabling = new Set();     // wcIds with an enable in flight
-
-function init(mainWindow) {
-  win = mainWindow;
-  enabled = !!(settings.get().intercept || {}).enabled;
 }
 
-function send(channel, payload) {
+/* ---------------------------------------------------------------- helpers */
+
+function isWebUrl(url) {
+  return !/^(fathi|chrome-extension|devtools|data|blob|about|chrome|javascript):/i.test(String(url || ''));
+}
+
+function matchesFilter(url) {
+  const filter = String((settings.get().intercept || {}).filter || '').trim().toLowerCase();
+  if (!filter) return true;
+  const u = String(url || '').toLowerCase();
+  return filter.split(/\s+/).some((part) => part && u.includes(part));
+}
+
+async function continueRaw(rec) {
+  try { await rec.wc.debugger.sendCommand('Fetch.continueRequest', { requestId: rec.id }); } catch {}
+}
+
+async function enableOn(wc) {
+  if (!wc || wc.isDestroyed() || enabling.has(wc.id)) return;
+  enabling.add(wc.id);
   try {
-    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
-  } catch {}
-}
-
-function state() {
-  return {
-    enabled,
-    paused: paused.size,
-    attached: guests.size,
-    filter: (settings.get().intercept || {}).filter || ''
-  };
+    const dbg = wc.debugger;
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    await dbg.sendCommand('Fetch.enable', {
+      patterns: [{ urlPattern: '*', requestStage: 'Request' }]
+    });
+  } catch (e) {
+    // another debugger (DevTools) may be attached, try again on dom-ready
+  } finally {
+    enabling.delete(wc.id);
+  }
