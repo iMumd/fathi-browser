@@ -1,30 +1,34 @@
-}
 
-async function disableOn(wc) {
-  if (!wc || wc.isDestroyed()) return;
-  for (const rec of Array.from(paused.values())) {
-    if (rec.wcId === wc.id) {
-      paused.delete(rec.id);
-      await continueRaw(rec);
+  const kick = () => { if (enabled) enableOn(wc).catch(() => {}); };
+  kick();
+  wc.once('dom-ready', kick);
+
+  wc.once('destroyed', () => {
+    guests.delete(wc.id);
+    for (const rec of Array.from(paused.values())) {
+      if (rec.wcId === wc.id) paused.delete(rec.id);
     }
-  }
-  try {
-    if (wc.debugger.isAttached()) await wc.debugger.sendCommand('Fetch.disable');
-  } catch {}
+    send('fathi:intercept:state', state());
+  });
 }
 
-/* ---------------------------------------------------------------- wiring */
+async function onMessage(wc, method, params) {
+  if (method !== 'Fetch.requestPaused') return;
+  const { requestId, request, resourceType } = params || {};
+  if (!requestId || !request) return;
 
-function attach(wc) {
-  if (!wc || guests.has(wc.id)) return;
-  guests.set(wc.id, wc);
+  const rec = {
+    id: requestId,
+    wcId: wc.id,
+    method: request.method || 'GET',
+    url: request.url || '',
+    resourceType: resourceType || 'Other',
+    headers: request.headers || {},
+    postData: request.postData || '',
+    at: Date.now()
+  };
 
-  const dbg = wc.debugger;
-  if (!wired.has(dbg)) {
-    wired.add(dbg);
-    dbg.on('message', (_e, method, params) => onMessage(wc, method, params));
-    dbg.on('detach', () => {
-      // DevTools opened/closed; re-enable on the next navigation
-      try { send('fathi:intercept:state', state()); } catch {}
-    });
+  if (!enabled || !isWebUrl(rec.url) || !matchesFilter(rec.url)) {
+    try { await wc.debugger.sendCommand('Fetch.continueRequest', { requestId }); } catch {}
+    return;
   }
