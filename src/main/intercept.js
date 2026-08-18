@@ -1,33 +1,30 @@
 }
 
-/* ---------------------------------------------------------------- helpers */
-
-function isWebUrl(url) {
-  return !/^(fathi|chrome-extension|devtools|data|blob|about|chrome|javascript):/i.test(String(url || ''));
-}
-
-function matchesFilter(url) {
-  const filter = String((settings.get().intercept || {}).filter || '').trim().toLowerCase();
-  if (!filter) return true;
-  const u = String(url || '').toLowerCase();
-  return filter.split(/\s+/).some((part) => part && u.includes(part));
-}
-
-async function continueRaw(rec) {
-  try { await rec.wc.debugger.sendCommand('Fetch.continueRequest', { requestId: rec.id }); } catch {}
-}
-
-async function enableOn(wc) {
-  if (!wc || wc.isDestroyed() || enabling.has(wc.id)) return;
-  enabling.add(wc.id);
+async function disableOn(wc) {
+  if (!wc || wc.isDestroyed()) return;
+  for (const rec of Array.from(paused.values())) {
+    if (rec.wcId === wc.id) {
+      paused.delete(rec.id);
+      await continueRaw(rec);
+    }
+  }
   try {
-    const dbg = wc.debugger;
-    if (!dbg.isAttached()) dbg.attach('1.3');
-    await dbg.sendCommand('Fetch.enable', {
-      patterns: [{ urlPattern: '*', requestStage: 'Request' }]
+    if (wc.debugger.isAttached()) await wc.debugger.sendCommand('Fetch.disable');
+  } catch {}
+}
+
+/* ---------------------------------------------------------------- wiring */
+
+function attach(wc) {
+  if (!wc || guests.has(wc.id)) return;
+  guests.set(wc.id, wc);
+
+  const dbg = wc.debugger;
+  if (!wired.has(dbg)) {
+    wired.add(dbg);
+    dbg.on('message', (_e, method, params) => onMessage(wc, method, params));
+    dbg.on('detach', () => {
+      // DevTools opened/closed; re-enable on the next navigation
+      try { send('fathi:intercept:state', state()); } catch {}
     });
-  } catch (e) {
-    // another debugger (DevTools) may be attached, try again on dom-ready
-  } finally {
-    enabling.delete(wc.id);
   }
