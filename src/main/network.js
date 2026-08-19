@@ -1,49 +1,51 @@
-'use strict';
-/**
- * Flow recorder. A full in-memory network log for every tab.
- *
- * Uses the DevTools "Network" domain on each tab's guest WebContents. Nothing
- * is written to disk unless the user explicitly exports: HAR, XML, JSON or CSV.
- *
- * The log is intentionally self-contained (request + response headers, request
- * and response bodies when textual, timings, sizes, failures) so it can also
- * drive the request inspector and the code generator in the UI.
- */
-const fs = require('node:fs');
-const path = require('node:path');
-const { dialog } = require('electron');
-
-const MAX_PER_TAB = 1500;
-const MAX_TOTAL = 6000;
-const MAX_BODY = 256 * 1024;
-
-let win = null;
-let metaFor = () => null;
-let seq = 0;
-let total = 0;
-
-const tabs = new Map();      // wcId -> { wc, reqs, order }
-const wired = new WeakSet();
-const enabling = new Set();
-let flushTimer = null;
-
-/* ------------------------------------------------------------------ setup */
-
-function init(mainWindow, opts = {}) {
-  win = mainWindow;
-  if (typeof opts.meta === 'function') metaFor = opts.meta;
 }
 
-function send(channel, payload) {
+function isInternal(url) {
+  return /^(fathi|devtools):/i.test(String(url || ''));
+}
+
+async function enableOn(wc) {
+  if (!wc || wc.isDestroyed() || isDevtoolsOpen(wc) || enabling.has(wc.id)) return;
+  enabling.add(wc.id);
   try {
-    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
-  } catch {}
+    const dbg = wc.debugger;
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    await dbg.sendCommand('Network.enable', {
+      maxTotalBufferSize: 64 * 1024 * 1024,
+      maxResourceBufferSize: 8 * 1024 * 1024,
+      maxPostDataSize: 128 * 1024
+    });
+  } catch {
+    // DevTools or another target owns the debugger; retry on the next load.
+  } finally {
+    enabling.delete(wc.id);
+  }
 }
 
-function tabFor(wc) {
-  let t = tabs.get(wc.id);
-  if (!t) {
-    t = { wc, reqs: new Map(), order: [] };
-    tabs.set(wc.id, t);
+function isDevtoolsOpen(wc) {
+  try { return wc.isDevToolsOpened && wc.isDevToolsOpened(); } catch { return false; }
+}
+
+function attach(wc) {
+  if (!wc || tabs.has(wc.id)) return;
+  tabFor(wc);
+
+  const dbg = wc.debugger;
+  if (!wired.has(dbg)) {
+    wired.add(dbg);
+    dbg.on('message', (_e, method, params) => onMessage(wc, method, params));
+    dbg.on('detach', () => {
+      try { send('fathi:net:batch', { wcId: wc.id, records: listSummaries(wc.id), stats: stats(wc.id) }); } catch {}
+    });
   }
-  return t;
+
+  const kick = () => { enableOn(wc).catch(() => {}); };
+  kick();
+  wc.once('dom-ready', kick);
+  wc.on('did-navigate', kick);
+  wc.on('devtools-closed', kick);
+
+  wc.once('destroyed', () => {
+    tabs.delete(wc.id);
+    scheduleFlush();
+  });
