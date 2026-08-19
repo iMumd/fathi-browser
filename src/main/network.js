@@ -1,22 +1,46 @@
-}
 
-function onRequest(wc, params) {
-  const t = tabFor(wc);
-  const r = params.request || {};
-  if (isInternal(r.url)) return;
+  const meta = safeMeta(wc) || {};
+  const rec = {
+    id: 'n' + (++seq),
+    requestId: params.requestId,
+    wcId: wc.id,
+    partition: meta.partition || '',
+    fpId: meta.fpId || '',
+    url: r.url || '',
+    method: r.method || 'GET',
+    resourceType: params.type || 'Other',
+    startedAt: Math.round((params.wallTime || Date.now() / 1000) * 1000),
+    monoStart: params.timestamp || 0,
+    requestHeaders: { ...(r.headers || {}) },
+    postData: r.postData || '',
+    hasPostData: !!r.hasPostData,
+    initiator: (params.initiator && params.initiator.type) || '',
+    status: 0,
+    statusText: '',
+    mimeType: '',
+    responseHeaders: {},
+    extraResponseHeaders: null,
+    timing: null,
+    size: 0,
+    encodedSize: 0,
+    body: null,
+    bodyTruncated: false,
+    failed: false,
+    errorText: '',
+    done: false,
+    fromCache: false,
+    fromServiceWorker: false,
+    remoteIPAddress: '',
+    remotePort: 0,
+    protocol: '',
+    redirectURL: ''
+  };
 
-  // A new request on an id that already exists is a redirect: close the old one.
-  const prev = t.reqs.get(params.requestId);
-  if (prev) {
-    prev.done = true;
-    if (params.redirectResponse) {
-      prev.status = params.redirectResponse.status;
-      prev.statusText = params.redirectResponse.statusText || '';
-      prev.responseHeaders = { ...(params.redirectResponse.headers || {}) };
-      prev.mimeType = params.redirectResponse.mimeType || '';
-      prev.redirectURL = r.url || '';
-      prev.timing = buildTiming(params.redirectResponse.timing, prev);
-      prev.size = prev.size || 0;
-    }
-    t.reqs.delete(params.requestId);
-  }
+  t.reqs.set(params.requestId, rec);
+  t.order.push(rec.id);
+  t.dirty = true;
+
+  total += 1;
+  trimTab(t);
+  trimTotal();
+  scheduleFlush();
