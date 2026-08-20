@@ -1,55 +1,43 @@
 }
 
-function trimTab(t) {
-  while (t.order.length > MAX_PER_TAB) {
-    const id = t.order.shift();
-    for (const [rid, rec] of t.reqs) {
-      if (rec.id === id) { t.reqs.delete(rid); break; }
-    }
-  }
+/* --------------------------------------------------------------- timings */
+
+function emptyTiming() {
+  return { dns: -1, connect: -1, ssl: -1, send: -1, wait: -1, receive: -1, blocked: -1, total: 0 };
 }
 
-function trimTotal() {
-  while (total > MAX_TOTAL) {
-    let oldest = null;
-    let oldestTab = null;
-    for (const t of tabs.values()) {
-      if (!t.order.length) continue;
-      const id = t.order[0];
-      let rec = null;
-      for (const r of t.reqs.values()) if (r.id === id) { rec = r; break; }
-      if (rec && (!oldest || rec.startedAt < oldest.startedAt)) {
-        oldest = rec;
-        oldestTab = t;
-      }
-    }
-    if (!oldest) break;
-    oldestTab.reqs.delete(oldest.requestId);
-    oldestTab.order.shift();
-    total -= 1;
-  }
+function diff(a, b) {
+  if (typeof a !== 'number' || typeof b !== 'number' || a < 0 || b < 0) return -1;
+  return Math.round((b - a) * 100) / 100;
 }
 
-async function fetchBody(wc, rec) {
-  if (rec.failed || rec.body != null) return;
-  const mime = String(rec.mimeType || '').toLowerCase();
-  if (/^(image|audio|video|font)\//.test(mime)) return;
-  if (/octet-stream|zip|pdf|protobuf/.test(mime)) return;
-  const size = rec.size || rec.encodedSize || 0;
-  if (size > 1024 * 1024) return;
+function buildTiming(raw, rec) {
+  const t = emptyTiming();
+  if (!raw) {
+    t.total = Math.max(0, Date.now() - (rec.startedAt || Date.now()));
+    return t;
+  }
+  t.dns = diff(raw.dnsStart, raw.dnsEnd);
+  t.connect = diff(raw.connectStart, raw.connectEnd);
+  t.ssl = diff(raw.sslStart, raw.sslEnd);
+  t.send = diff(raw.sendStart, raw.sendEnd);
+  t.wait = diff(raw.sendEnd, raw.receiveHeadersEnd);
+  t.blocked = 0;
+  t.total = typeof raw.receiveHeadersEnd === 'number' && raw.receiveHeadersEnd > 0
+    ? Math.round(raw.receiveHeadersEnd * 100) / 100
+    : 0;
+  return t;
+}
+
+/* --------------------------------------------------------------- helpers */
+
+function safeMeta(wc) {
+  try { return metaFor(wc) || null; } catch { return null; }
+}
+
+function headerSize(headers) {
   try {
-    const res = await wc.debugger.sendCommand('Network.getResponseBody', { requestId: rec.requestId });
-    if (!res) return;
-    let text = res.base64Encoded
-      ? Buffer.from(res.body || '', 'base64').toString('utf8')
-      : String(res.body || '');
-    if (text.length > MAX_BODY) {
-      text = text.slice(0, MAX_BODY);
-      rec.bodyTruncated = true;
-    }
-    rec.body = text;
-    rec.size = rec.size || Buffer.byteLength(text);
-    const t = tabs.get(wc.id);
-    if (t) t.dirty = true;
-    scheduleFlush();
-  } catch {}
+    let n = 0;
+    for (const [k, v] of Object.entries(headers || {})) n += k.length + String(v).length + 4;
+    return n;
+  } catch { return 0; }
