@@ -1,60 +1,52 @@
-function stats(wcId, all) {
-  const recs = collect(wcId, all);
-  let bytes = 0;
-  let failed = 0;
-  let ms = 0;
-  const domains = new Map();
-  const slow = [];
-  const statuses = { s2: 0, s3: 0, s4: 0, s5: 0 };
-  for (const r of recs) {
-    bytes += r.size || 0;
-    if (r.failed) failed += 1;
-    if (r.timing && r.timing.total > 0) ms += r.timing.total;
-    if (r.status >= 200 && r.status < 300) statuses.s2 += 1;
-    else if (r.status >= 300 && r.status < 400) statuses.s3 += 1;
-    else if (r.status >= 400 && r.status < 500) statuses.s4 += 1;
-    else if (r.status >= 500) statuses.s5 += 1;
-    let host = '';
-    try { host = new URL(r.url).hostname; } catch {}
-    if (host) {
-      const d = domains.get(host) || { host, count: 0, bytes: 0 };
-      d.count += 1;
-      d.bytes += r.size || 0;
-      domains.set(host, d);
+}
+
+function httpVersion(rec) {
+  return rec.protocol ? rec.protocol.replace('http/', 'HTTP/') : 'HTTP/1.1';
+}
+
+function toHarRequest(rec) {
+  const headers = Object.entries(rec.requestHeaders || {}).map(([name, value]) => ({ name, value: String(value) }));
+  const qs = queryString(rec.url);
+  const cookies = [];
+  if (rec.requestHeaders && rec.requestHeaders.cookie) {
+    for (const part of String(rec.requestHeaders.cookie).split(';')) {
+      const i = part.indexOf('=');
+      if (i > 0) cookies.push({ name: part.slice(0, i).trim(), value: part.slice(i + 1).trim() });
     }
-    if (r.timing && r.timing.total > 0) slow.push({ url: r.url, ms: Math.round(r.timing.total), status: r.status });
   }
-  slow.sort((a, b) => b.ms - a.ms);
-  return {
-    count: recs.length,
-    bytes,
-    failed,
-    avgMs: recs.length ? Math.round(ms / recs.length) : 0,
-    statuses,
-    slowest: slow.slice(0, 6),
-    domains: Array.from(domains.values()).sort((a, b) => b.bytes - a.bytes).slice(0, 8)
+  const req = {
+    method: rec.method,
+    url: rec.url,
+    httpVersion: httpVersion(rec),
+    cookies,
+    headers,
+    queryString: qs,
+    headersSize: headerSize(rec.requestHeaders),
+    bodySize: rec.postData ? Buffer.byteLength(rec.postData) : 0
   };
+  if (rec.postData) {
+    req.postData = { mimeType: (rec.requestHeaders && rec.requestHeaders['content-type']) || '', text: rec.postData };
+  }
+  return req;
 }
 
-/* ----------------------------------------------------------------- export */
-
-function scheduleFlush() {
-  if (flushTimer) return;
-  flushTimer = setTimeout(() => {
-    flushTimer = null;
-    for (const t of tabs.values()) {
-      if (!t.dirty) continue;
-      t.dirty = false;
-      send('fathi:net:batch', {
-        wcId: t.wc.id,
-        records: listSummaries(t.wc.id).slice(-400)
-      });
-    }
-  }, 220);
-}
-
-function queryString(url) {
-  try {
-    const u = new URL(url);
-    return Array.from(u.searchParams.entries()).map(([name, value]) => ({ name, value }));
-  } catch { return []; }
+function toHarResponse(rec) {
+  const headers = Object.entries(rec.extraResponseHeaders || rec.responseHeaders || {})
+    .map(([name, value]) => ({ name, value: String(value) }));
+  const cookies = [];
+  const bodySize = rec.body ? Buffer.byteLength(rec.body) : (rec.size || 0);
+  return {
+    status: rec.status || 0,
+    statusText: rec.statusText || '',
+    httpVersion: httpVersion(rec),
+    cookies,
+    headers,
+    content: {
+      size: bodySize,
+      mimeType: rec.mimeType || 'application/octet-stream',
+      text: rec.body != null ? rec.body : ''
+    },
+    redirectURL: rec.redirectURL || '',
+    headersSize: headerSize(rec.responseHeaders),
+    bodySize
+  };
