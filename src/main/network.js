@@ -1,50 +1,47 @@
 }
 
-function cdata(value) {
-  return '<![CDATA[' + String(value == null ? '' : value).replace(/]]>/g, ']]]]><![CDATA[>') + ']]>';
+const FORMATS = {
+  har: { ext: 'har', name: 'HTTP Archive', mime: 'application/json' },
+  json: { ext: 'json', name: 'JSON', mime: 'application/json' },
+  xml: { ext: 'xml', name: 'XML', mime: 'application/xml' },
+  csv: { ext: 'csv', name: 'CSV', mime: 'text/csv' }
+};
+
+function serialize(format, opts) {
+  switch (format) {
+    case 'xml': return xml(opts);
+    case 'csv': return csv(opts);
+    case 'json':
+      return JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        count: collect(opts.wcId, !!opts.all).length,
+        requests: collect(opts.wcId, !!opts.all)
+      }, null, 2);
+    case 'har':
+    default:
+      return JSON.stringify(har(opts), null, 2);
+  }
 }
 
-function xml(opts = {}) {
-  const recs = collect(opts.wcId, !!opts.all);
-  const out = [];
-  out.push('<?xml version="1.0" encoding="UTF-8"?>');
-  out.push(`<fathi-session exportedAt="${new Date().toISOString()}" count="${recs.length}" version="1.0">`);
-  for (const rec of recs) {
-    const t = rec.timing || emptyTiming();
-    out.push(`  <request id="${xmlEscape(rec.id, true)}" method="${xmlEscape(rec.method, true)}" url="${xmlEscape(rec.url, true)}" status="${rec.status || 0}" type="${xmlEscape(rec.resourceType, true)}" mime="${xmlEscape(rec.mimeType, true)}" startedAt="${new Date(rec.startedAt).toISOString()}" timeMs="${Math.max(0, Math.round(t.total || 0))}" size="${rec.size || 0}" ip="${xmlEscape(rec.remoteIPAddress, true)}" failed="${rec.failed ? 'true' : 'false'}">`);
-    out.push('    <requestHeaders>');
-    for (const [name, value] of Object.entries(rec.requestHeaders || {})) {
-      out.push(`      <header name="${xmlEscape(name, true)}">${xmlEscape(value)}</header>`);
-    }
-    out.push('    </requestHeaders>');
-    if (rec.postData) out.push(`    <requestBody encoding="utf-8">${cdata(rec.postData)}</requestBody>`);
-    out.push('    <responseHeaders>');
-    for (const [name, value] of Object.entries(rec.extraResponseHeaders || rec.responseHeaders || {})) {
-      out.push(`      <header name="${xmlEscape(name, true)}">${xmlEscape(value)}</header>`);
-    }
-    out.push('    </responseHeaders>');
-    if (rec.body != null) {
-      out.push(`    <responseBody encoding="utf-8" truncated="${rec.bodyTruncated ? 'true' : 'false'}">${cdata(rec.body)}</responseBody>`);
-    }
-    out.push(`    <timing dns="${t.dns}" connect="${t.connect}" ssl="${t.ssl}" send="${t.send}" wait="${t.wait}" receive="${t.receive}" total="${t.total}" />`);
-    if (rec.errorText) out.push(`    <error>${xmlEscape(rec.errorText)}</error>`);
-    out.push('  </request>');
-  }
-  out.push('</fathi-session>');
-  return out.join('\n');
+async function save(opts = {}) {
+  const format = FORMATS[opts.format] ? opts.format : 'har';
+  const info = FORMATS[format];
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const base = opts.all ? 'fathi-flow-all' : 'fathi-flow';
+  const defaultPath = path.join(process.env.USERPROFILE || process.env.HOME || '.', `${base}-${stamp}.${info.ext}`);
+
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Save flow',
+    defaultPath,
+    filters: [
+      { name: info.name, extensions: [info.ext] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+  if (res.canceled || !res.filePath) return { ok: false, canceled: true };
+
+  const content = serialize(format, opts);
+  await fs.promises.writeFile(res.filePath, content, 'utf8');
+  return { ok: true, path: res.filePath, bytes: Buffer.byteLength(content), format };
 }
 
-function csv(opts = {}) {
-  const recs = collect(opts.wcId, !!opts.all);
-  const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const rows = [['startedAt', 'method', 'url', 'status', 'type', 'mime', 'size', 'timeMs', 'dns', 'connect', 'ssl', 'send', 'wait', 'failed', 'error'].join(',')];
-  for (const r of recs) {
-    const t = r.timing || emptyTiming();
-    rows.push([
-      new Date(r.startedAt).toISOString(),
-      esc(r.method), esc(r.url), r.status || 0, esc(r.resourceType), esc(r.mimeType),
-      r.size || 0, Math.round(t.total || 0), t.dns, t.connect, t.ssl, t.send, t.wait,
-      r.failed ? 1 : 0, esc(r.errorText)
-    ].join(','));
-  }
-  return rows.join('\r\n');
