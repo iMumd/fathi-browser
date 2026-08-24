@@ -1,41 +1,38 @@
+}));
+
+ipcMain.handle('fathi:win:minimize', () => { if (mainWindow) mainWindow.minimize(); return ok({}); });
+ipcMain.handle('fathi:win:toggle-maximize', () => {
+  if (!mainWindow) return ok({});
+  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+  return ok({ maximized: mainWindow.isMaximized() });
+});
+ipcMain.handle('fathi:win:close', () => { if (mainWindow) mainWindow.close(); return ok({}); });
+ipcMain.handle('fathi:win:state', () => ok({
+  maximized: mainWindow ? mainWindow.isMaximized() : false,
+  fullscreen: mainWindow ? mainWindow.isFullScreen() : false
+}));
+ipcMain.handle('fathi:open-external', (e, url) => { shell.openExternal(url).catch(() => {}); return ok({}); });
+
+/* --- devices */
+ipcMain.handle('fathi:devices:list', () => ok({
+  devices: devices.DEVICES,
+  groups: devices.GROUPS,
+  desktop: devices.DESKTOP
+}));
+
+/* --- fingerprints */
+ipcMain.handle('fathi:fp:new', () => {
+  const fp = fpgen.generate();
+  fps.set(fp.id, fp);
+  return ok({ fp });
 });
 
-/* ------------------------------------------------------------------- auth */
-
-app.on('login', (event, webContents, details, authInfo, callback) => {
-  if (!authInfo || !authInfo.isProxy) return;
-
-  // find the entry assigned to the session that requested auth
-  let entry = null;
-  try {
-    const ses = webContents.session;
-    for (const [partition, rec] of partitions) {
-      if (rec.ses === ses) { entry = proxyMgr.entryFor(partition); break; }
-    }
-  } catch {}
-
-  if (!entry) {
-    const pool = proxyMgr.pool();
-    entry = pool[0] || null;
-  }
-  if (!entry) return;
-
-  event.preventDefault();
-  callback(entry.username || '', entry.password || '');
+ipcMain.on('fathi:fp:sync', (event, fpId) => {
+  const fp = fps.get(fpId);
+  event.returnValue = fp ? JSON.stringify(fp) : 'null';
 });
 
-/* --------------------------------------------------------------------- IPC */
-
-function ok(data) { return { ok: true, ...data }; }
-function fail(error) { return { ok: false, error: String(error && error.message || error) }; }
-
-/* --- app / window */
-ipcMain.handle('fathi:app:info', () => ok({
-  name: 'Fathi',
-  version: app.getVersion(),
-  electron: process.versions.electron,
-  chrome: process.versions.chrome,
-  node: process.versions.node,
-  platform: process.platform,
-  arch: process.arch,
-  sessions: partitions.size
+ipcMain.handle('fathi:fp:current', (event, fpId) => {
+  const fp = fps.get(fpId);
+  return fp ? ok({ fp }) : fail('no fingerprint');
+});
