@@ -1,38 +1,40 @@
-}));
 
-ipcMain.handle('fathi:win:minimize', () => { if (mainWindow) mainWindow.minimize(); return ok({}); });
-ipcMain.handle('fathi:win:toggle-maximize', () => {
-  if (!mainWindow) return ok({});
-  mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
-  return ok({ maximized: mainWindow.isMaximized() });
+/* --- tabs */
+ipcMain.handle('fathi:tab:prepare', async (event, opts = {}) => {
+  try {
+    let fp = opts.fp && opts.fp.id ? opts.fp : null;
+    if (!fp) {
+      fp = fpgen.generate({ deviceId: opts.deviceId });
+      if (opts.landscape && fp.device && fp.device.mobile) {
+        const w = fp.device.width;
+        fp.device.width = fp.device.height;
+        fp.device.height = w;
+        fp.device.orientation = 'landscape';
+        fp.screen.width = fp.device.width;
+        fp.screen.height = fp.device.height;
+        fp.screen.availWidth = fp.device.width;
+        fp.screen.availHeight = Math.round(fp.device.height * 0.94);
+      }
+      fps.set(fp.id, fp);
+    } else {
+      fps.set(fp.id, fp);
+    }
+
+    const partition = `fathi-tab-${fp.id}-${Date.now().toString(36)}`;
+    partitionFp.set(partition, fp.id);
+    ensureSession(partition, fp);
+
+    return ok({
+      fp,
+      fpId: fp.id,
+      partition,
+      proxy: proxyMgr.status(partition)
+    });
+  } catch (e) {
+    return fail(e);
+  }
 });
-ipcMain.handle('fathi:win:close', () => { if (mainWindow) mainWindow.close(); return ok({}); });
-ipcMain.handle('fathi:win:state', () => ok({
-  maximized: mainWindow ? mainWindow.isMaximized() : false,
-  fullscreen: mainWindow ? mainWindow.isFullScreen() : false
-}));
-ipcMain.handle('fathi:open-external', (e, url) => { shell.openExternal(url).catch(() => {}); return ok({}); });
 
-/* --- devices */
-ipcMain.handle('fathi:devices:list', () => ok({
-  devices: devices.DEVICES,
-  groups: devices.GROUPS,
-  desktop: devices.DESKTOP
-}));
-
-/* --- fingerprints */
-ipcMain.handle('fathi:fp:new', () => {
-  const fp = fpgen.generate();
-  fps.set(fp.id, fp);
-  return ok({ fp });
-});
-
-ipcMain.on('fathi:fp:sync', (event, fpId) => {
-  const fp = fps.get(fpId);
-  event.returnValue = fp ? JSON.stringify(fp) : 'null';
-});
-
-ipcMain.handle('fathi:fp:current', (event, fpId) => {
-  const fp = fps.get(fpId);
-  return fp ? ok({ fp }) : fail('no fingerprint');
-});
+ipcMain.handle('fathi:tab:destroy', async (event, { partition } = {}) => {
+  if (partition) await destroySession(partition);
+  return ok({});
