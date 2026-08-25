@@ -1,39 +1,43 @@
-ipcMain.handle('fathi:intercept:resolve', async (event, payload = {}) => {
-  const res = await intercept.resolve(payload);
-  return res.ok ? ok({}) : fail(res.error);
-});
 
-ipcMain.handle('fathi:intercept:drain', async () => {
-  try { return ok(await intercept.drain()); }
+ipcMain.handle('fathi:net:clear', (event, { wcId, all } = {}) => {
+  try { return ok(network.clear({ wcId, all: !!all })); }
   catch (e) { return fail(e); }
 });
 
-ipcMain.handle('fathi:intercept:filter', (event, { filter } = {}) => {
-  try { return ok({ state: intercept.setFilter(filter) }); }
-  catch (e) { return fail(e); }
-});
+/* --- settings */
+ipcMain.handle('fathi:settings:get', () => ok({
+  settings: settings.get(),
+  info: {
+    version: app.getVersion(),
+    chrome: process.versions.chrome,
+    electron: process.versions.electron
+  }
+}));
 
-/* --- flow recorder (network log / HAR export) */
-ipcMain.handle('fathi:net:list', (event, { wcId, all } = {}) => {
+ipcMain.handle('fathi:settings:set', (event, patch = {}) => {
   try {
-    return ok({
-      records: network.listSummaries(wcId, !!all),
-      stats: network.stats(wcId, !!all)
-    });
+    const cfg = settings.save(patch);
+    mainWindow && mainWindow.webContents.send('fathi:settings:changed', cfg);
+    return ok({ settings: cfg });
   } catch (e) { return fail(e); }
 });
 
-ipcMain.handle('fathi:net:detail', (event, { wcId, id } = {}) => {
-  const record = network.detail({ wcId, id });
-  return record ? ok({ record }) : fail('request not found');
-});
+ipcMain.handle('fathi:settings:reset', () => ok({ settings: settings.reset() }));
 
-ipcMain.handle('fathi:net:export', async (event, opts = {}) => {
-  try { return ok(await network.save(opts)); }
-  catch (e) { return fail(e); }
-});
+/* --- wallpapers */
+const LOCAL_WALLPAPER_DIR = path.join(__dirname, '..', '..', 'assets', 'wallpapers');
+let wallpaperCache = { at: 0, list: [] };
 
-ipcMain.handle('fathi:net:serialize', (event, { format = 'har', wcId, all } = {}) => {
-  try { return ok({ text: network.serialize(format, { wcId, all: !!all }) }); }
-  catch (e) { return fail(e); }
-});
+function localWallpapers() {
+  try {
+    return fs.readdirSync(LOCAL_WALLPAPER_DIR)
+      .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
+      .sort()
+      .map((f) => ({
+        url: `fathi://wallpaper/${encodeURIComponent(f)}`,
+        thumb: `fathi://wallpaper/${encodeURIComponent(f)}`,
+        author: 'Unsplash',
+        link: 'https://unsplash.com',
+        local: true
+      }));
+  } catch { return []; }
