@@ -1,33 +1,43 @@
-}
-
-function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-ipcMain.handle('fathi:wallpaper:fetch', async () => {
-  try {
-    const cfg = settings.get().wallpapers;
-    if (cfg.source === 'none') return ok({ wallpaper: null });
-    if (cfg.source === 'custom' && cfg.custom) {
-      return ok({ wallpaper: { url: cfg.custom, author: 'Custom', link: '' } });
-    }
-
-    // The bundled set is always used as the guarantee; the live Unsplash
-    // stream is only an opt-in bonus so wallpapers never come up blank
-    // (proxy/offline/firewall) and never hang the page on a remote image.
-    const locals = localWallpapers();
-    const localPick = locals.length ? pickRandom(locals) : null;
-    let wallpaper = localPick;
-
-    if (cfg.source === 'unsplash' && cfg.online === true && Math.random() < 0.5) {
-      const remote = await fetchUnsplash();
-      if (remote.length) wallpaper = pickRandom(remote);
-    }
-
-    if (!wallpaper) return ok({ wallpaper: null });
-    return ok({
-      wallpaper: { ...wallpaper, fallback: localPick ? localPick.url : '' },
-      count: locals.length
-    });
-  } catch (e) { return fail(e); }
+ipcMain.handle('fathi:newtab:navigate', (event, url) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('fathi:newtab:navigate', { url, wcId: event.sender.id });
+  }
+  return ok({});
 });
 
-/* --- new tab page bridge */
+ipcMain.handle('fathi:newtab:new', (event) => {
+  if (mainWindow) mainWindow.webContents.send('fathi:newtab:new', { wcId: event.sender.id });
+  return ok({});
+});
+
+ipcMain.handle('fathi:newtab:rotate', (event) => {
+  if (mainWindow) mainWindow.webContents.send('fathi:newtab:rotate', { wcId: event.sender.id });
+  return ok({});
+});
+
+ipcMain.handle('fathi:newtab:focus', (event) => {
+  if (mainWindow) mainWindow.webContents.send('fathi:focus-omnibox');
+  return ok({});
+});
+
+ipcMain.handle('fathi:page:status', (event) => {
+  let partition = '';
+  try {
+    for (const [p, rec] of partitions) {
+      if (rec.ses === event.sender.session) { partition = p; break; }
+    }
+  } catch {}
+  return ok({
+    proxy: proxyMgr.status(partition),
+    fpId: partitionFp.get(partition) || '',
+    partition
+  });
+});
+
+/* --- extensions */
+ipcMain.handle('fathi:ext:install', async (event, { input } = {}) => {
+  try {
+    const res = await extMgr.install(input, partitions);
+    const list = await extMgr.list(partitions);
+    return ok({ ...res, list });
+  } catch (e) { return fail(e); }
