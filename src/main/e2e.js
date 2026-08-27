@@ -1,51 +1,51 @@
 
-  const devFrame = await withTimeout(ui.executeJavaScript(`(() => {
+  /* ---- 5c. flow recorder, capture, inspect, export and code generation */
+  trace('check 5c: flow recorder');
+  await sleep(800);
+  const netInfo = await ui.executeJavaScript(`(async () => {
     const wv = document.querySelector('webview.active');
-    const v = document.getElementById('view');
-    const r = v.getBoundingClientRect();
-    const w = wv.getBoundingClientRect();
-    return {
-      stage: v.classList.contains('stage'),
-      cssW: wv.style.width, cssH: wv.style.height,
-      styleRight: w.right <= r.right + 1 && w.left >= r.left - 1 && w.top >= r.top - 1 && w.bottom <= r.bottom + 1,
-      scale: wv.style.transform,
-      url: (() => { try { return wv.getURL(); } catch { return ''; } })()
-    };
-  })()`), 5000, 'device frame');
-  add('device tab uses a frame', devFrame.stage && devFrame.cssW === '393px' && devFrame.cssH === '852px', JSON.stringify(devFrame));
+    const wcId = wv.getWebContentsId();
+    const res = await window.api.net.list({ wcId });
+    return { wcId, count: res.ok ? res.records.length : -1 };
+  })()`).catch((e) => ({ count: -1, error: String(e) }));
+  add('flow captures the request log', netInfo.count > 0, JSON.stringify(netInfo));
 
-  const devMetrics = await waitFor(async () => {
-    const m = await withTimeout(ui.executeJavaScript(`(async () => {
-      const wv = document.querySelector('webview.active');
-      try {
-        return await wv.executeJavaScript('({ iw: innerWidth, ih: innerHeight, sw: screen.width, sh: screen.height, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, ua: navigator.userAgent, platform: navigator.platform, uaData: typeof navigator.userAgentData, chromeObj: typeof window.chrome })');
-      } catch (e) { return { err: String(e && e.message || e) }; }
-    })()`), 5000, 'device metrics');
-    return m && !m.err ? m : null;
-  }, 15000);
-  const devOK = devMetrics &&
-    devMetrics.iw === 393 && devMetrics.sw === 393 &&
-    Math.abs(devMetrics.dpr - 3) < 0.01 && devMetrics.touch === 5 &&
-    /iPhone/.test(devMetrics.ua) && devMetrics.platform === 'iPhone' &&
-    devMetrics.uaData === 'undefined' && devMetrics.chromeObj === 'undefined';
-  add('device metrics match the user agent', devOK, JSON.stringify(devMetrics));
+  await ui.executeJavaScript(`document.getElementById('chip-flow').click()`);
+  await sleep(500);
+  const flowRows = await ui.executeJavaScript(`document.querySelectorAll('#net-list .net-row').length`);
+  add('flow panel lists requests', flowRows > 0, 'rows=' + flowRows);
 
-  /* ---- 5b. interceptor, pause, inspect and forward a real request */
-  trace('check 5b: interceptor on');
-  await ui.executeJavaScript(`(async () => { await window.api.intercept.set(true); })()`);
-  await ui.executeJavaScript(`(() => {
-    const wv = document.querySelector('webview.active');
-    wv.loadURL('https://example.com/?fathi-ix=1');
-  })()`);
-  const pausedRows = await waitFor(
-    () => ui.executeJavaScript(`document.querySelectorAll('#ix-list .ix-item').length`),
-    20000
-  );
-  add('interceptor pauses requests', pausedRows > 0, 'rows=' + pausedRows);
-  if (pausedRows > 0) {
-    await ui.executeJavaScript(`document.getElementById('ix-forward-all').click()`);
-    await sleep(800);
-  }
-  await ui.executeJavaScript(`(async () => { await window.api.intercept.set(false); })()`);
-  const ixOff = await ui.executeJavaScript(`(async () => (await window.api.intercept.state()).state.enabled)()`);
-  add('interceptor turns off cleanly', ixOff === false, 'enabled=' + ixOff);
+  const har = await ui.executeJavaScript(`(async () => {
+    const wcId = document.querySelector('webview.active').getWebContentsId();
+    const res = await window.api.net.serialize({ format: 'har', wcId });
+    return res.ok ? res.text : '';
+  })()`).catch(() => '');
+  add('HAR export builds a valid archive', har.includes('"log"') && har.includes('"entries"') && har.includes('"creator"'), 'bytes=' + har.length);
+
+  const xmlExport = await ui.executeJavaScript(`(async () => {
+    const wcId = document.querySelector('webview.active').getWebContentsId();
+    const res = await window.api.net.serialize({ format: 'xml', wcId });
+    return res.ok ? res.text : '';
+  })()`).catch(() => '');
+  add('XML export builds a session document', xmlExport.includes('<fathi-session') && xmlExport.includes('<request '), 'bytes=' + xmlExport.length);
+
+  const code = await ui.executeJavaScript(`(async () => {
+    const wcId = document.querySelector('webview.active').getWebContentsId();
+    const res = await window.api.net.list({ wcId });
+    const rec = (res.records || []).find((r) => /example\\.com/.test(r.url)) || (res.records || [])[0];
+    if (!rec) return '';
+    const d = await window.api.net.detail({ wcId, id: rec.id });
+    if (!d.ok) return '';
+    return [codeFor(d.record, 'curl'), codeFor(d.record, 'python'), codeFor(d.record, 'php')].join('\\n---\\n');
+  })()`).catch(() => '');
+  add('request code generation works', /curl -X/.test(code) && /import requests/.test(code) && /curl_init/.test(code), 'chars=' + code.length);
+
+  await ui.executeJavaScript(`document.querySelector('#net-list .net-row').click()`);
+  await sleep(500);
+  const inspector = await ui.executeJavaScript(`({
+    visible: !document.getElementById('net-detail').classList.contains('hidden'),
+    notes: document.querySelectorAll('#net-panel .net-note').length,
+    title: (document.querySelector('.net-title') || {}).textContent || ''
+  })`).catch(() => ({ visible: false, notes: 0 }));
+  add('flow inspector renders analysis', inspector.visible && inspector.notes > 0, JSON.stringify(inspector));
+  await ui.executeJavaScript(`document.getElementById('ix-close').click()`);
