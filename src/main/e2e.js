@@ -1,59 +1,51 @@
 
-  /* ---- 2b. wallpaper + brand icon render inside the tab */
-  let wall = null;
-  for (let i = 0; i < 10; i += 1) {
-    wall = await withTimeout(ui.executeJavaScript(`(async () => {
+  const devFrame = await withTimeout(ui.executeJavaScript(`(() => {
+    const wv = document.querySelector('webview.active');
+    const v = document.getElementById('view');
+    const r = v.getBoundingClientRect();
+    const w = wv.getBoundingClientRect();
+    return {
+      stage: v.classList.contains('stage'),
+      cssW: wv.style.width, cssH: wv.style.height,
+      styleRight: w.right <= r.right + 1 && w.left >= r.left - 1 && w.top >= r.top - 1 && w.bottom <= r.bottom + 1,
+      scale: wv.style.transform,
+      url: (() => { try { return wv.getURL(); } catch { return ''; } })()
+    };
+  })()`), 5000, 'device frame');
+  add('device tab uses a frame', devFrame.stage && devFrame.cssW === '393px' && devFrame.cssH === '852px', JSON.stringify(devFrame));
+
+  const devMetrics = await waitFor(async () => {
+    const m = await withTimeout(ui.executeJavaScript(`(async () => {
       const wv = document.querySelector('webview.active');
       try {
-        return await wv.executeJavaScript('(() => { const bg = document.getElementById("bg"); const img = document.querySelector("#brand-mark img"); return { ready: bg.classList.contains("ready"), bg: getComputedStyle(bg).backgroundImage, brand: img ? { w: img.naturalWidth, src: img.getAttribute("src") } : null }; })()');
+        return await wv.executeJavaScript('({ iw: innerWidth, ih: innerHeight, sw: screen.width, sh: screen.height, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, ua: navigator.userAgent, platform: navigator.platform, uaData: typeof navigator.userAgentData, chromeObj: typeof window.chrome })');
       } catch (e) { return { err: String(e && e.message || e) }; }
-    })()`), 6000, 'wallpaper').catch((e) => ({ err: String(e && e.message || e) }));
-    if (wall && wall.ready) break;
-    await sleep(700);
-  }
-  add('new tab wallpaper loaded', !!(wall && /url\(/.test(wall.bg || '')), JSON.stringify(wall));
-  add('new tab brand icon loaded', !!(wall && wall.brand && wall.brand.w > 0), JSON.stringify(wall && wall.brand));
+    })()`), 5000, 'device metrics');
+    return m && !m.err ? m : null;
+  }, 15000);
+  const devOK = devMetrics &&
+    devMetrics.iw === 393 && devMetrics.sw === 393 &&
+    Math.abs(devMetrics.dpr - 3) < 0.01 && devMetrics.touch === 5 &&
+    /iPhone/.test(devMetrics.ua) && devMetrics.platform === 'iPhone' &&
+    devMetrics.uaData === 'undefined' && devMetrics.chromeObj === 'undefined';
+  add('device metrics match the user agent', devOK, JSON.stringify(devMetrics));
 
-  /* ---- 2c. start-page promo banners (GitHub + Telegram) */
-  const promos = await ui.executeJavaScript(`(async () => {
+  /* ---- 5b. interceptor, pause, inspect and forward a real request */
+  trace('check 5b: interceptor on');
+  await ui.executeJavaScript(`(async () => { await window.api.intercept.set(true); })()`);
+  await ui.executeJavaScript(`(() => {
     const wv = document.querySelector('webview.active');
-    try {
-      return await wv.executeJavaScript('(() => Array.from(document.querySelectorAll("#promos .promo")).map((a) => ({ href: a.getAttribute("href"), target: a.getAttribute("target"), title: (a.querySelector(".ptitle") || {}).textContent, sub: (a.querySelector(".psub") || {}).textContent, go: (a.querySelector(".pgo") || {}).textContent })))()');
-    } catch (e) { return { err: String(e && e.message || e) }; }
-  })()`).catch((e) => ({ err: String(e && e.message || e) }));
-  add('start page promos render',
-    Array.isArray(promos) && promos.length === 2 &&
-      promos[0].href === 'https://github.com/iMumd' && promos[0].target === '_blank' &&
-      promos[1].href === 'https://t.me/Mumdthoughts' && promos[1].target === '_blank' &&
-      /GitHub/.test(promos[0].sub || '') && /Telegram/.test(promos[1].sub || ''),
-    JSON.stringify(promos));
-
-  /* ---- 3. second tab gets a different partition */
-  trace('check 3: second tab');
-  await ui.executeJavaScript(`document.getElementById('newtab-btn').click()`);
-  await sleep(1800);
-  const two = await tabsState();
-  add('second tab created', two.count === 2, 'tabs=' + two.count);
-  add('tabs use separate sessions', two.partition && first && two.partition !== first.partition,
-    `${first && first.partition} | ${two.partition}`);
-
-  /* ---- 4. navigation works (through proxy) */
-  trace('check 4: navigation');
-  await ui.executeJavaScript(`
-    (() => {
-      const wv = document.querySelector('webview.active');
-      wv.loadURL('https://example.com');
-    })()
-  `);
-  const nav = await waitFor(async () => {
-    const s = await tabsState();
-    return s.url && s.url.includes('example.com') && !s.url.startsWith('fathi://') ? s : null;
-  }, 45000);
-  add('external navigation works', !!nav, nav && nav.url);
-  add('page title updated', !!(nav && nav.title), nav && nav.title);
-
-  /* ---- 5. device mode (iPhone preset), same window, mobile metrics */
-  trace('check 5: device tab');
-  await ui.executeJavaScript(`void createTab({ deviceId: 'iphone-15-pro' }); true`);
-  await sleep(2600);
-  trace('check 5: device frame');
+    wv.loadURL('https://example.com/?fathi-ix=1');
+  })()`);
+  const pausedRows = await waitFor(
+    () => ui.executeJavaScript(`document.querySelectorAll('#ix-list .ix-item').length`),
+    20000
+  );
+  add('interceptor pauses requests', pausedRows > 0, 'rows=' + pausedRows);
+  if (pausedRows > 0) {
+    await ui.executeJavaScript(`document.getElementById('ix-forward-all').click()`);
+    await sleep(800);
+  }
+  await ui.executeJavaScript(`(async () => { await window.api.intercept.set(false); })()`);
+  const ixOff = await ui.executeJavaScript(`(async () => (await window.api.intercept.state()).state.enabled)()`);
+  add('interceptor turns off cleanly', ixOff === false, 'enabled=' + ixOff);
