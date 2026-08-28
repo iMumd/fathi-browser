@@ -1,49 +1,61 @@
-'use strict';
-/**
- * Fathi page preload.
- *
- * Runs in every tab (and sub-frame). Two jobs:
- *   1. inject the per-tab fingerprint into the page's main world, before any
- *      page script executes;
- *   2. expose a small bridge (fathi:// internal pages only) for the new tab.
- */
-const { ipcRenderer, contextBridge, webFrame } = require('electron');
 
-/* ---------------------------------------------------------- fingerprint */
+  /* ---------- plugins / mimeTypes ---------- */
+  try {
+    const names = cfg.plugins || ['PDF Viewer', 'Chrome PDF Viewer', 'Chromium PDF Viewer'];
+    const plugins = names.map((n) => {
+      const p = { name: n, filename: 'internal-pdf-viewer', description: 'Portable Document Format', length: 0 };
+      p.item = () => null; p.namedItem = () => null;
+      return p;
+    });
+    plugins.item = (i) => plugins[i] || null;
+    plugins.namedItem = (n) => plugins.find((p) => p.name === n) || null;
+    plugins.refresh = () => {};
+    def(nav, 'plugins', plugins);
 
-function fathiSpoof(cfg) {
-  'use strict';
-  const w = window;
+    const mimes = [{ type: 'application/pdf', suffixes: 'pdf', description: 'Portable Document Format' }];
+    mimes.item = (i) => mimes[i] || null;
+    mimes.namedItem = (t) => mimes.find((m) => m.type === t) || null;
+    def(nav, 'mimeTypes', mimes);
+  } catch (e) {}
 
-  const def = (obj, prop, value) => {
-    try {
-      Object.defineProperty(obj, prop, { get: () => value, configurable: true, enumerable: true });
-    } catch (e) {}
-  };
-  const defGet = (obj, prop, fn) => {
-    try { Object.defineProperty(obj, prop, { get: fn, configurable: true, enumerable: true }); } catch (e) {}
-  };
-
-  const nav = w.navigator;
-  if (!nav) return;
-
-  /* ---------- navigator identity ---------- */
-  def(nav, 'userAgent', cfg.ua);
-  def(nav, 'appVersion', cfg.appVersion);
-  def(nav, 'appName', cfg.appName || 'Netscape');
-  def(nav, 'appCodeName', cfg.appCodeName || 'Mozilla');
-  def(nav, 'platform', cfg.platform);
-  def(nav, 'vendor', cfg.vendor || 'Google Inc.');
-  def(nav, 'vendorSub', cfg.vendorSub || '');
-  def(nav, 'productSub', cfg.productSub || '20030107');
-  def(nav, 'language', cfg.language);
-  def(nav, 'languages', Object.freeze((cfg.languages || [cfg.language]).slice()));
-  def(nav, 'hardwareConcurrency', cfg.hardwareConcurrency);
-  def(nav, 'deviceMemory', cfg.deviceMemory);
-  def(nav, 'maxTouchPoints', cfg.maxTouchPoints || 0);
-  def(nav, 'webdriver', false);
-  def(nav, 'doNotTrack', null);
-  def(nav, 'cookieEnabled', true);
-  def(nav, 'onLine', true);
-  def(nav, 'pdfViewerEnabled', true);
-  if (cfg.oscpu) def(nav, 'oscpu', cfg.oscpu);
+  /* ---------- client hints ---------- */
+  try {
+    if (cfg.clientHints === false) {
+      // Safari (iOS) never exposes User-Agent Client Hints.
+      try {
+        Object.defineProperty(nav, 'userAgentData', {
+          get: () => undefined, configurable: true, enumerable: false
+        });
+      } catch (e) {}
+    } else {
+      const brands = cfg.uaBrands || [];
+      const fullList = cfg.uaFullVersionList || [];
+      const isMobile = !!(cfg.device && cfg.device.mobile);
+      const highEntropy = (hints) => {
+        const out = {
+          architecture: cfg.architecture,
+          bitness: cfg.bitness,
+          brands,
+          fullVersionList: fullList,
+          mobile: isMobile,
+          model: cfg.model || '',
+          platform: cfg.uaDataPlatform,
+          platformVersion: cfg.platformVersion,
+          uaFullVersion: cfg.uaFullVersion,
+          wow64: cfg.wow64
+        };
+        if (!hints || !hints.length) return out;
+        const filtered = {};
+        for (const h of hints) if (Object.prototype.hasOwnProperty.call(out, h)) filtered[h] = out[h];
+        return filtered;
+      };
+      const uaData = {
+        brands,
+        mobile: isMobile,
+        platform: cfg.uaDataPlatform,
+        getHighEntropyValues: (hints) => Promise.resolve(highEntropy(hints)),
+        toJSON: () => ({ brands, mobile: isMobile, platform: cfg.uaDataPlatform })
+      };
+      def(nav, 'userAgentData', uaData);
+    }
+  } catch (e) {}
