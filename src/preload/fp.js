@@ -1,51 +1,52 @@
 
-  /* ---------- chrome object ---------- */
+  /* ---------- touch + mobile media (consistent with the device preset) ---------- */
   try {
-    if (cfg.hasChromeObject === false) {
-      try { Object.defineProperty(w, 'chrome', { get: () => undefined, configurable: true }); } catch (e) {
-        try { delete w.chrome; } catch (e2) {}
-      }
-    } else {
-      if (!w.chrome) w.chrome = {};
-      const ch = w.chrome;
-      if (!ch.runtime) ch.runtime = {};
-      if (!ch.runtime.id) ch.runtime.id = undefined;
-      ch.loadTimes = () => ({
-        requestTime: Date.now() / 1000 - 0.05,
-        startLoadTime: Date.now() / 1000 - 0.04,
-        commitLoadTime: Date.now() / 1000 - 0.02,
-        finishDocumentLoadTime: Date.now() / 1000 - 0.01,
-        finishLoadTime: Date.now() / 1000,
-        firstPaintTime: Date.now() / 1000 - 0.015,
-        firstPaintAfterLoadTime: 0,
-        navigationType: 'Other',
-        wasFetchedViaSpdy: true,
-        wasNpnNegotiated: true,
-        npnNegotiatedProtocol: 'h2',
-        wasAlternateProtocolAvailable: false,
-        connectionInfo: 'h2'
-      });
-      ch.csi = () => ({
-        onloadT: Date.now(), startE: Date.now() - 120, pageT: 120,
-        tran: 15, navigationStart: Date.now() - 120
-      });
-      if (!ch.app) ch.app = { isInstalled: false, InstallState: { DISABLED: 'disabled' }, RunningState: { RUNNING: 'running' }, getDetails: () => null, getIsInstalled: () => false };
-
-      /* ---------- chrome.webstore shim (real install via Fathi) ---------- */
+    const mobile = !!(cfg.device && cfg.device.mobile);
+    if (mobile) {
+      def(nav, 'maxTouchPoints', cfg.device.touch || 5);
+      try { if (!('ontouchstart' in w)) def(w, 'ontouchstart', null); } catch (e) {}
       try {
-        if (!ch.webstore) {
-          ch.webstore = {
-            install: function (url, onSuccess, onFailure) {
-              try {
-                const bridge = w.__fathiBridge;
-                const p = bridge && bridge.installExtension
-                  ? bridge.installExtension(String(url))
-                  : Promise.reject(new Error('unsupported'));
-                p.then(() => onSuccess && onSuccess(), (e) => onFailure && onFailure(String(e && e.message || e)));
-              } catch (e) { onFailure && onFailure(String(e)); }
+        const origMM = w.matchMedia.bind(w);
+        w.matchMedia = function (q) {
+          const query = String(q || '');
+          let res = origMM(query);
+          try {
+            if (/pointer:\s*coarse/.test(query) || /any-pointer:\s*coarse/.test(query)) {
+              return { matches: true, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false; } };
             }
-          };
-        }
+            if (/hover:\s*none/.test(query) || /any-hover:\s*none/.test(query)) {
+              return { matches: true, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false; } };
+            }
+            if (/pointer:\s*fine/.test(query) || /hover:\s*hover/.test(query)) {
+              return { matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false; } };
+            }
+          } catch (e) {}
+          return res;
+        };
       } catch (e) {}
+    }
+
+    if (nav.mediaDevices && nav.mediaDevices.enumerateDevices) {
+      const fake = mobile
+        ? [
+            { deviceId: 'default', kind: 'audioinput', label: '' },
+            { deviceId: 'default', kind: 'audiooutput', label: '' },
+            { deviceId: 'cam0', kind: 'videoinput', label: '' }
+          ]
+        : [
+            { deviceId: 'default', kind: 'audioinput', label: '' },
+            { deviceId: 'default', kind: 'audiooutput', label: '' },
+            { deviceId: 'cam0', kind: 'videoinput', label: '' }
+          ];
+      nav.mediaDevices.enumerateDevices = () => Promise.resolve(fake.map((d) => ({ ...d, groupId: 'fathi' })));
+      if (!nav.mediaDevices.getDisplayMedia) {
+        nav.mediaDevices.getDisplayMedia = () => Promise.reject(new Error('Not allowed'));
+      }
+    }
+
+    if (w.screen && w.screen.orientation) {
+      const portrait = !cfg.device || cfg.device.height >= cfg.device.width;
+      def(w.screen.orientation, 'type', portrait ? 'portrait-primary' : 'landscape-primary');
+      def(w.screen.orientation, 'angle', 0);
     }
   } catch (e) {}
