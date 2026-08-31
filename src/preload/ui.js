@@ -1,3 +1,32 @@
+'use strict';
+const { contextBridge, ipcRenderer } = require('electron');
+
+const EVENTS = new Set([
+  'fathi:window:open',
+  'fathi:newtab:navigate',
+  'fathi:newtab:new',
+  'fathi:newtab:rotate',
+  'fathi:focus-omnibox',
+  'fathi:new-tab',
+  'fathi:close-tab',
+  'fathi:win:state',
+  'fathi:proxy:changed',
+  'fathi:settings:changed',
+  'fathi:intercept:paused',
+  'fathi:intercept:resolved',
+  'fathi:intercept:state',
+  'fathi:net:batch'
+]);
+
+contextBridge.exposeInMainWorld('api', {
+  appInfo: () => ipcRenderer.invoke('fathi:app:info'),
+
+  win: {
+    minimize: () => ipcRenderer.invoke('fathi:win:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('fathi:win:toggle-maximize'),
+    close: () => ipcRenderer.invoke('fathi:win:close'),
+    state: () => ipcRenderer.invoke('fathi:win:state')
+  },
 
   fp: {
     create: () => ipcRenderer.invoke('fathi:fp:new'),
@@ -27,3 +56,36 @@
     drain: () => ipcRenderer.invoke('fathi:intercept:drain'),
     filter: (filter) => ipcRenderer.invoke('fathi:intercept:filter', { filter })
   },
+
+  net: {
+    list: (payload) => ipcRenderer.invoke('fathi:net:list', payload || {}),
+    detail: (payload) => ipcRenderer.invoke('fathi:net:detail', payload || {}),
+    export: (payload) => ipcRenderer.invoke('fathi:net:export', payload || {}),
+    serialize: (payload) => ipcRenderer.invoke('fathi:net:serialize', payload || {}),
+    clear: (payload) => ipcRenderer.invoke('fathi:net:clear', payload || {})
+  },
+
+  settings: {
+    get: () => ipcRenderer.invoke('fathi:settings:get'),
+    set: (patch) => ipcRenderer.invoke('fathi:settings:set', patch),
+    reset: () => ipcRenderer.invoke('fathi:settings:reset')
+  },
+
+  wallpaper: () => ipcRenderer.invoke('fathi:wallpaper:fetch'),
+
+  ext: {
+    install: (input) => ipcRenderer.invoke('fathi:ext:install', { input }),
+    installUnpacked: () => ipcRenderer.invoke('fathi:ext:install-unpacked'),
+    list: () => ipcRenderer.invoke('fathi:ext:list'),
+    remove: (id) => ipcRenderer.invoke('fathi:ext:remove', { id })
+  },
+
+  openExternal: (url) => ipcRenderer.invoke('fathi:open-external', url),
+
+  on: (channel, cb) => {
+    if (!EVENTS.has(channel)) return () => {};
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+  }
+});
