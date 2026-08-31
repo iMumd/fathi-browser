@@ -1,29 +1,29 @@
-'use strict';
-const { contextBridge, ipcRenderer } = require('electron');
 
-const EVENTS = new Set([
-  'fathi:window:open',
-  'fathi:newtab:navigate',
-  'fathi:newtab:new',
-  'fathi:newtab:rotate',
-  'fathi:focus-omnibox',
-  'fathi:new-tab',
-  'fathi:close-tab',
-  'fathi:win:state',
-  'fathi:proxy:changed',
-  'fathi:settings:changed',
-  'fathi:intercept:paused',
-  'fathi:intercept:resolved',
-  'fathi:intercept:state',
-  'fathi:net:batch'
-]);
+  fp: {
+    create: () => ipcRenderer.invoke('fathi:fp:new'),
+    current: (fpId) => ipcRenderer.invoke('fathi:fp:current', fpId)
+  },
 
-contextBridge.exposeInMainWorld('api', {
-  appInfo: () => ipcRenderer.invoke('fathi:app:info'),
+  tab: {
+    prepare: (opts) => ipcRenderer.invoke('fathi:tab:prepare', opts || {}),
+    destroy: (partition) => ipcRenderer.invoke('fathi:tab:destroy', { partition }),
+    proxyStatus: (partition) => ipcRenderer.invoke('fathi:tab:proxy-status', { partition })
+  },
 
-  win: {
-    minimize: () => ipcRenderer.invoke('fathi:win:minimize'),
-    toggleMaximize: () => ipcRenderer.invoke('fathi:win:toggle-maximize'),
-    close: () => ipcRenderer.invoke('fathi:win:close'),
-    state: () => ipcRenderer.invoke('fathi:win:state')
+  devices: {
+    list: () => ipcRenderer.invoke('fathi:devices:list')
+  },
+
+  proxy: {
+    get: () => ipcRenderer.invoke('fathi:proxy:get'),
+    set: (patch) => ipcRenderer.invoke('fathi:proxy:set', patch),
+    test: (entry, url) => ipcRenderer.invoke('fathi:proxy:test', { entry, url })
+  },
+
+  intercept: {
+    state: () => ipcRenderer.invoke('fathi:intercept:state'),
+    set: (enabled) => ipcRenderer.invoke('fathi:intercept:set', { enabled }),
+    resolve: (payload) => ipcRenderer.invoke('fathi:intercept:resolve', payload),
+    drain: () => ipcRenderer.invoke('fathi:intercept:drain'),
+    filter: (filter) => ipcRenderer.invoke('fathi:intercept:filter', { filter })
   },
