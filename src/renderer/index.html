@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https:" />
+  <title>Fathi</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- ============================= TITLE BAR ============================= -->
+  <header id="titlebar">
+    <div id="brand" title="Fathi">
+      <img src="../../assets/icon-64.png" alt="" draggable="false" />
+      <span class="brand-name">Fathi</span>
+    </div>
+
+    <div id="tabstrip" role="tablist"></div>
+
+    <button id="newtab-btn" class="icon-btn ghost" data-i18n-title="menu.newTab" aria-label="New tab">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <div id="wincontrols">
+      <button id="win-min" class="win-btn" data-i18n-title="win.minimize" aria-label="Minimize">
+        <svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+      </button>
+      <button id="win-max" class="win-btn" data-i18n-title="win.maximize" aria-label="Maximize">
+        <svg viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></svg>
+      </button>
+      <button id="win-close" class="win-btn danger" data-i18n-title="win.close" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================== TOOLBAR ============================= -->
+  <div id="toolbar">
+    <div class="nav-group">
+      <button id="btn-back" class="icon-btn" data-i18n-title="nav.back" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <button id="btn-fwd" class="icon-btn" data-i18n-title="nav.forward" aria-label="Forward">
+        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <button id="btn-reload" class="icon-btn" data-i18n-title="nav.reload" aria-label="Reload">
+        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+      </button>
+      <button id="btn-home" class="icon-btn" data-i18n-title="nav.home" aria-label="Home">
+        <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+      </button>
+    </div>
