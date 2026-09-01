@@ -1,55 +1,39 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
-<head>
-  <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https:" />
-  <title>Fathi</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
 
-<div id="shell">
-
-  <!-- ============================= TITLE BAR ============================= -->
-  <header id="titlebar">
-    <div id="brand" title="Fathi">
-      <img src="../../assets/icon-64.png" alt="" draggable="false" />
-      <span class="brand-name">Fathi</span>
-    </div>
-
-    <div id="tabstrip" role="tablist"></div>
-
-    <button id="newtab-btn" class="icon-btn ghost" data-i18n-title="menu.newTab" aria-label="New tab">
-      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-    </button>
-
-    <div id="wincontrols">
-      <button id="win-min" class="win-btn" data-i18n-title="win.minimize" aria-label="Minimize">
-        <svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
-      </button>
-      <button id="win-max" class="win-btn" data-i18n-title="win.maximize" aria-label="Maximize">
-        <svg viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></svg>
-      </button>
-      <button id="win-close" class="win-btn danger" data-i18n-title="win.close" aria-label="Close">
+    <div id="omnibox-wrap">
+      <span id="omni-icon" data-i18n-title="omni.internal">
+        <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="9" rx="2.5"/></svg>
+      </span>
+      <input id="omnibox" type="text" spellcheck="false" autocomplete="off"
+             data-i18n-ph="omni.placeholder" placeholder="Search or enter address" />
+      <button id="btn-omni-clear" class="mini-btn hidden" data-i18n-title="omni.clear" aria-label="Clear">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
-  </header>
 
-  <!-- ============================== TOOLBAR ============================= -->
-  <div id="toolbar">
-    <div class="nav-group">
-      <button id="btn-back" class="icon-btn" data-i18n-title="nav.back" aria-label="Back">
-        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+    <div id="toolbar-right">
+      <button id="chip-device" class="chip" data-i18n-title="devices.active">
+        <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.6"/><path d="M10.6 5.2h2.8"/></svg>
+        <span id="chip-device-text">Desktop</span>
       </button>
-      <button id="btn-fwd" class="icon-btn" data-i18n-title="nav.forward" aria-label="Forward">
-        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+
+      <button id="chip-fp" class="chip" data-i18n-title="tab.fp">
+        <svg viewBox="0 0 24 24"><path d="M12 3c4 0 7 3 7 7v4a7 7 0 0 1-14 0v-4c0-4 3-7 7-7z"/><path d="M9 12h6M12 9v6"/></svg>
+        <span id="chip-fp-text">Fingerprint</span>
       </button>
-      <button id="btn-reload" class="icon-btn" data-i18n-title="nav.reload" aria-label="Reload">
-        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+
+      <button id="chip-proxy" class="chip" data-i18n-title="chip.proxy">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13.5 0 16M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+        <span id="chip-proxy-text">Proxy</span>
       </button>
-      <button id="btn-home" class="icon-btn" data-i18n-title="nav.home" aria-label="Home">
-        <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+
+      <button id="chip-flow" class="chip" data-i18n-title="flow.title">
+        <svg viewBox="0 0 24 24"><path d="M4 6h9M4 12h16M4 18h11"/><circle cx="17" cy="6" r="2"/><circle cx="19" cy="18" r="2"/></svg>
+        <span id="chip-flow-text">Flow</span>
+        <span id="chip-flow-count" class="chip-count hidden">0</span>
       </button>
-    </div>
+
+      <button id="chip-intercept" class="chip" data-i18n-title="intercept.title">
+        <svg viewBox="0 0 24 24"><path d="M8 6v12M16 6v12"/><path d="M5 4h14v16H5z"/></svg>
+        <span id="chip-intercept-text">Intercept</span>
+        <span id="chip-intercept-count" class="chip-count hidden">0</span>
+      </button>
