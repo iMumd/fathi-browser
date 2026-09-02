@@ -1,3 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https:" />
+  <title>Fathi</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- ============================= TITLE BAR ============================= -->
+  <header id="titlebar">
+    <div id="brand" title="Fathi">
+      <img src="../../assets/icon-64.png" alt="" draggable="false" />
+      <span class="brand-name">Fathi</span>
+    </div>
+
+    <div id="tabstrip" role="tablist"></div>
+
+    <button id="newtab-btn" class="icon-btn ghost" data-i18n-title="menu.newTab" aria-label="New tab">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <div id="wincontrols">
+      <button id="win-min" class="win-btn" data-i18n-title="win.minimize" aria-label="Minimize">
+        <svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+      </button>
+      <button id="win-max" class="win-btn" data-i18n-title="win.maximize" aria-label="Maximize">
+        <svg viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></svg>
+      </button>
+      <button id="win-close" class="win-btn danger" data-i18n-title="win.close" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================== TOOLBAR ============================= -->
+  <div id="toolbar">
+    <div class="nav-group">
+      <button id="btn-back" class="icon-btn" data-i18n-title="nav.back" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <button id="btn-fwd" class="icon-btn" data-i18n-title="nav.forward" aria-label="Forward">
+        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <button id="btn-reload" class="icon-btn" data-i18n-title="nav.reload" aria-label="Reload">
+        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+      </button>
+      <button id="btn-home" class="icon-btn" data-i18n-title="nav.home" aria-label="Home">
+        <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+      </button>
+    </div>
+
+    <div id="omnibox-wrap">
+      <span id="omni-icon" data-i18n-title="omni.internal">
+        <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="9" rx="2.5"/></svg>
+      </span>
+      <input id="omnibox" type="text" spellcheck="false" autocomplete="off"
+             data-i18n-ph="omni.placeholder" placeholder="Search or enter address" />
+      <button id="btn-omni-clear" class="mini-btn hidden" data-i18n-title="omni.clear" aria-label="Clear">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div id="toolbar-right">
+      <button id="chip-device" class="chip" data-i18n-title="devices.active">
+        <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.6"/><path d="M10.6 5.2h2.8"/></svg>
+        <span id="chip-device-text">Desktop</span>
+      </button>
+
+      <button id="chip-fp" class="chip" data-i18n-title="tab.fp">
+        <svg viewBox="0 0 24 24"><path d="M12 3c4 0 7 3 7 7v4a7 7 0 0 1-14 0v-4c0-4 3-7 7-7z"/><path d="M9 12h6M12 9v6"/></svg>
+        <span id="chip-fp-text">Fingerprint</span>
+      </button>
+
+      <button id="chip-proxy" class="chip" data-i18n-title="chip.proxy">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13.5 0 16M12 4c-2.5 2.5-2.5 13.5 0 16"/></svg>
+        <span id="chip-proxy-text">Proxy</span>
+      </button>
+
+      <button id="chip-flow" class="chip" data-i18n-title="flow.title">
+        <svg viewBox="0 0 24 24"><path d="M4 6h9M4 12h16M4 18h11"/><circle cx="17" cy="6" r="2"/><circle cx="19" cy="18" r="2"/></svg>
+        <span id="chip-flow-text">Flow</span>
+        <span id="chip-flow-count" class="chip-count hidden">0</span>
+      </button>
+
+      <button id="chip-intercept" class="chip" data-i18n-title="intercept.title">
+        <svg viewBox="0 0 24 24"><path d="M8 6v12M16 6v12"/><path d="M5 4h14v16H5z"/></svg>
+        <span id="chip-intercept-text">Intercept</span>
+        <span id="chip-intercept-count" class="chip-count hidden">0</span>
+      </button>
+
+      <button id="btn-shuffle" class="icon-btn" data-i18n-title="menu.shuffle" aria-label="New identity">
+        <svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l10-10h3"/><path d="M17 4l3 3-3 3M17 14l3 3-3 3"/></svg>
+      </button>
+
+      <button id="btn-menu" class="icon-btn" data-i18n-title="menu.settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="progress"><div id="bar"></div></div>
+
+  <main id="view"></main>
+</div>
+
+<!-- ========================== DEVICE POPOVER =========================== -->
+<div id="device-popover" class="popover hidden">
+  <div class="popover-head">
+    <span data-i18n="devices.title">Device modes</span>
+    <button id="device-rotate" class="mini-btn" data-i18n-title="devices.rotate" aria-label="Rotate">
+      <svg viewBox="0 0 24 24"><rect x="4" y="7" width="12" height="10" rx="2"/><path d="M19 10v4"/></svg>
+    </button>
+  </div>
+  <div id="device-list" class="device-list"></div>
+</div>
+
+<!-- ===================== FLOW + INTERCEPT DRAWER ======================= -->
+<aside id="ix-drawer" class="hidden">
+  <header id="ix-head">
+    <div class="ix-tabs" role="tablist">
+      <button class="ix-tab active" data-dev-tab="flow">
+        <span data-i18n="flow.title">Flow</span>
+        <span id="ix-net-count" class="badge accent">0</span>
+      </button>
+      <button class="ix-tab" data-dev-tab="intercept">
+        <span data-i18n="intercept.title">Intercept</span>
+        <span id="ix-count" class="badge">0</span>
+      </button>
+    </div>
+    <button id="ix-close" class="icon-btn" data-i18n-title="intercept.close" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </header>
+
+  <!-- -------------------------------- FLOW ------------------------------- -->
+  <section id="pane-flow" class="ix-pane">
+    <div id="net-summary" class="net-summary">
+      <div class="ns-cell"><b id="net-total">0</b><span data-i18n="flow.requests">requests</span></div>
+      <div class="ns-cell"><b id="net-bytes">0 B</b><span data-i18n="flow.transferred">transferred</span></div>
+      <div class="ns-cell"><b id="net-avg">0 ms</b><span data-i18n="flow.avg">avg</span></div>
+      <div class="ns-cell"><b id="net-fail">0</b><span data-i18n="flow.failed">failed</span></div>
+    </div>
+
+    <div class="ix-filter-wrap">
+      <input id="net-filter" class="ix-filter" type="text" spellcheck="false" dir="ltr"
+             data-i18n-ph="flow.filter" placeholder="Filter URL, method or status" />
+    </div>
+
+    <div class="ix-body">
+      <div id="net-list" class="net-list"></div>
+      <div id="net-detail" class="net-detail hidden"></div>
+    </div>
+
+    <footer class="ix-foot">
+      <select id="net-scope" class="mini-select">
+        <option value="tab" data-i18n="flow.thisTab">This tab</option>
+        <option value="all" data-i18n="flow.allTabs">All tabs</option>
+      </select>
+      <select id="net-format" class="mini-select">
+        <option value="har">HAR</option>
+        <option value="xml">XML</option>
+        <option value="json">JSON</option>
+        <option value="csv">CSV</option>
+      </select>
+      <button class="btn sm primary" id="net-save" data-i18n="flow.save">Save</button>
+      <button class="btn sm" id="net-clear" data-i18n="flow.clear">Clear</button>
+    </footer>
+  </section>
+
+  <!-- ----------------------------- INTERCEPT ----------------------------- -->
+  <section id="pane-intercept" class="ix-pane hidden">
+    <div class="ix-toolbar">
+      <div class="ix-title">
+        <span class="ix-led"></span>
+        <span id="ix-state-text">Off</span>
+      </div>
+      <div class="switch" id="ix-toggle" title="Pause requests"></div>
+    </div>
+
+    <div class="ix-filter-wrap">
+      <input id="ix-filter" class="ix-filter" type="text" spellcheck="false" dir="ltr"
+             data-i18n-ph="intercept.filter" placeholder="Filter by host or path, e.g. api.example.com" />
+    </div>
 
     <div class="ix-body">
       <div id="ix-list"></div>
@@ -46,3 +234,47 @@
         </div>
       </div>
     </div>
+
+    <footer class="ix-foot">
+      <button class="btn sm" id="ix-forward-all" data-i18n="intercept.forwardAll">Forward all</button>
+      <span class="muted small" id="ix-hint"></span>
+    </footer>
+  </section>
+</aside>
+
+<!-- ============================= SETTINGS ============================= -->
+<div id="settings-overlay" class="overlay hidden">
+  <aside id="settings-panel">
+    <header id="settings-head">
+      <div class="settings-title">
+        <img src="../../assets/icon-64.png" alt="" />
+        <div>
+          <h1>Fathi</h1>
+          <p class="muted small" data-i18n="settings.subtitle">Private by design</p>
+        </div>
+      </div>
+      <button id="settings-close" class="icon-btn" data-i18n-title="settings.close" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <nav id="settings-nav">
+      <button class="snav active" data-section="general" data-i18n="settings.nav.general">General</button>
+      <button class="snav" data-section="devices" data-i18n="settings.nav.devices">Devices</button>
+      <button class="snav" data-section="fingerprint" data-i18n="settings.nav.fingerprint">Fingerprint</button>
+      <button class="snav" data-section="proxy" data-i18n="settings.nav.proxy">Proxy</button>
+      <button class="snav" data-section="wallpapers" data-i18n="settings.nav.wallpapers">Wallpapers</button>
+      <button class="snav" data-section="extensions" data-i18n="settings.nav.extensions">Extensions</button>
+      <button class="snav" data-section="about" data-i18n="settings.nav.about">About</button>
+    </nav>
+
+    <div id="settings-body"></div>
+  </aside>
+</div>
+
+<div id="toasts"></div>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
