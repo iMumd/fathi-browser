@@ -1,0 +1,31 @@
+/* ============================================================================
+ * Fathi flat, muted, formal. Black by default. Sharp edges.
+ * ========================================================================== */
+
+:root {
+  --bg: #F4F5F7;
+  --surface: #FFFFFF;
+  --surface-2: #F7F8FA;
+  --card: #FBFBFC;
+  --text: #15171A;
+  --muted: #676D76;
+  --faint: #9AA0A8;
+  --border: #E3E5E9;
+  --border-soft: #EDEEF1;
+  --hover: #F0F1F4;
+  --field: #F2F3F6;
+  --accent: #4E7FA8;
+  --accent-strong: #3F6C92;
+  --accent-soft: #EAF1F7;
+  --accent-text: #FFFFFF;
+  --ok: #2C9C76;
+  --ok-soft: #E7F6F0;
+  --warn: #B3761C;
+  --warn-soft: #FBF2E1;
+  --err: #CF5252;
+  --err-soft: #FBEDED;
+  --shadow-sm: none;
+  --shadow-md: 0 1px 2px rgba(16, 20, 26, .04);
+  --shadow-lg: 0 24px 60px rgba(8, 10, 14, .30);
+  --stage: #ECEEF1;
+  --overlay: rgba(20, 24, 30, .38);
