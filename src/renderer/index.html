@@ -1,50 +1,48 @@
 
-  <!-- -------------------------------- FLOW ------------------------------- -->
-  <section id="pane-flow" class="ix-pane">
-    <div id="net-summary" class="net-summary">
-      <div class="ns-cell"><b id="net-total">0</b><span data-i18n="flow.requests">requests</span></div>
-      <div class="ns-cell"><b id="net-bytes">0 B</b><span data-i18n="flow.transferred">transferred</span></div>
-      <div class="ns-cell"><b id="net-avg">0 ms</b><span data-i18n="flow.avg">avg</span></div>
-      <div class="ns-cell"><b id="net-fail">0</b><span data-i18n="flow.failed">failed</span></div>
-    </div>
-
-    <div class="ix-filter-wrap">
-      <input id="net-filter" class="ix-filter" type="text" spellcheck="false" dir="ltr"
-             data-i18n-ph="flow.filter" placeholder="Filter URL, method or status" />
-    </div>
-
     <div class="ix-body">
-      <div id="net-list" class="net-list"></div>
-      <div id="net-detail" class="net-detail hidden"></div>
-    </div>
+      <div id="ix-list"></div>
 
-    <footer class="ix-foot">
-      <select id="net-scope" class="mini-select">
-        <option value="tab" data-i18n="flow.thisTab">This tab</option>
-        <option value="all" data-i18n="flow.allTabs">All tabs</option>
-      </select>
-      <select id="net-format" class="mini-select">
-        <option value="har">HAR</option>
-        <option value="xml">XML</option>
-        <option value="json">JSON</option>
-        <option value="csv">CSV</option>
-      </select>
-      <button class="btn sm primary" id="net-save" data-i18n="flow.save">Save</button>
-      <button class="btn sm" id="net-clear" data-i18n="flow.clear">Clear</button>
-    </footer>
-  </section>
-
-  <!-- ----------------------------- INTERCEPT ----------------------------- -->
-  <section id="pane-intercept" class="ix-pane hidden">
-    <div class="ix-toolbar">
-      <div class="ix-title">
-        <span class="ix-led"></span>
-        <span id="ix-state-text">Off</span>
+      <div id="ix-detail" class="hidden">
+        <div class="field">
+          <label data-i18n="intercept.url">URL</label>
+          <input id="ix-url" type="text" spellcheck="false" dir="ltr" />
+        </div>
+        <div class="ix-two">
+          <div class="field">
+            <label data-i18n="intercept.method">Method</label>
+            <input id="ix-method" type="text" spellcheck="false" dir="ltr" />
+          </div>
+          <div class="field">
+            <label data-i18n="intercept.type">Type</label>
+            <input id="ix-type" type="text" readonly />
+          </div>
+        </div>
+        <div class="field">
+          <label data-i18n="intercept.headers">Headers</label>
+          <textarea id="ix-headers" spellcheck="false" dir="ltr"></textarea>
+        </div>
+        <div class="field" id="ix-body-field">
+          <label data-i18n="intercept.body">Body</label>
+          <textarea id="ix-body-text" spellcheck="false" dir="ltr"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="ix-forward" data-i18n="intercept.forward">Forward</button>
+          <button class="btn danger" id="ix-drop" data-i18n="intercept.drop">Drop</button>
+          <button class="btn ghost" id="ix-back" data-i18n="intercept.back">Back</button>
+        </div>
+        <div class="btn-row ix-code-row">
+          <select id="ix-code-lang" class="mini-select">
+            <option value="curl">cURL</option>
+            <option value="python">Python · requests</option>
+            <option value="python-http">Python · http.client</option>
+            <option value="php">PHP · cURL</option>
+            <option value="node">Node.js · fetch</option>
+            <option value="powershell">PowerShell</option>
+            <option value="go">Go</option>
+            <option value="raw">Raw HTTP</option>
+          </select>
+          <button class="btn sm" id="ix-code-copy" data-i18n="flow.copyCode">Copy code</button>
+          <button class="btn sm" id="ix-copy-curl">cURL</button>
+        </div>
       </div>
-      <div class="switch" id="ix-toggle" title="Pause requests"></div>
-    </div>
-
-    <div class="ix-filter-wrap">
-      <input id="ix-filter" class="ix-filter" type="text" spellcheck="false" dir="ltr"
-             data-i18n-ph="intercept.filter" placeholder="Filter by host or path, e.g. api.example.com" />
     </div>
