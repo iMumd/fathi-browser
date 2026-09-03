@@ -1,30 +1,30 @@
-}
-
-#brand img {
-  width: 22px;
-  height: 22px;
-  display: block;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .18));
-}
-
-#brand .brand-name {
-  font-size: 11.5px;
-  font-weight: 650;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-}
-
-#tabstrip {
-  flex: 1 1 auto;
-  min-width: 0;
+.tab {
+  flex: 0 1 auto;
+  min-width: 132px;
+  max-width: 250px;
+  height: 30px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 2px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-app-region: no-drag;
+  gap: 8px;
+  padding: 0 7px 0 9px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: transparent;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+  position: relative;
 }
-#tabstrip::-webkit-scrollbar { display: none; }
+.tab:hover { background: var(--hover); color: var(--text); }
+.tab.active {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
 
+.tab-fpdot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: .55;
