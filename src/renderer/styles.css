@@ -1,33 +1,32 @@
-.tab-close {
-  width: 20px;
-  height: 20px;
+
+.nav-group { display: flex; align-items: center; gap: 2px; }
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
-  border-radius: 2px;
+  border-radius: 3px;
   display: grid;
   place-items: center;
-  color: var(--faint);
-  opacity: 0;
-  transition: opacity .12s, background .12s, color .12s;
+  color: var(--muted);
+  transition: background .12s, color .12s, opacity .12s;
 }
-.tab:hover .tab-close, .tab.active .tab-close { opacity: 1; }
-.tab-close:hover { background: var(--border); color: var(--text); }
-.tab-close svg { width: 12px; height: 12px; }
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn:active { transform: scale(.97); }
+.icon-btn:disabled { opacity: .32; pointer-events: none; }
+.icon-btn svg { width: 17px; height: 17px; }
+.icon-btn.ghost { color: var(--faint); }
 
-#newtab-btn { margin: 0 2px; }
-
-/* ================================ TOOLBAR ================================ */
-
-#toolbar {
-  flex: 0 0 auto;
-  height: 52px;
+#omnibox-wrap {
+  flex: 1 1 auto;
+  min-width: 120px;
+  height: 34px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  -webkit-app-region: no-drag;
-  position: relative;
-  z-index: 5;
+  gap: 8px;
+  padding: 0 11px;
+  border-radius: 3px;
+  background: var(--field);
+  border: 1px solid transparent;
+  transition: background .12s, border-color .12s;
 }
