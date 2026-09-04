@@ -1,30 +1,35 @@
-#omnibox-wrap:focus-within {
-  background: var(--surface);
-  border-color: var(--accent);
 }
+.mini-btn:hover { background: var(--border); color: var(--text); }
+.mini-btn svg { width: 13px; height: 13px; }
 
-#omni-icon { display: grid; place-items: center; color: var(--faint); flex: 0 0 auto; }
-#omni-icon svg { width: 15px; height: 15px; stroke-width: 1.8; }
-#omni-icon.secure { color: var(--ok); }
-#omni-icon.insecure { color: var(--warn); }
+#toolbar-right { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 
-#omnibox {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100%;
-  border: 0;
-  outline: 0;
+.chip {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 3px;
   background: transparent;
-  font-size: 12.5px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background .12s, color .12s, border-color .12s;
 }
-#omnibox::placeholder { color: var(--faint); }
+.chip:hover { background: var(--hover); color: var(--text); }
+.chip svg { width: 13px; height: 13px; opacity: .9; }
+.chip.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.chip span { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 
-.mini-btn {
-  width: 22px;
-  height: 22px;
+#progress {
   flex: 0 0 auto;
-  border-radius: 2px;
-  display: grid;
-  place-items: center;
-  color: var(--faint);
-  transition: background .12s, color .12s;
+  height: 2px;
+  margin: -5px 14px 0;
+  border-radius: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .18s;
+  z-index: 6;
