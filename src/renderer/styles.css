@@ -1,30 +1,33 @@
+}
+html.rtl #ix-drawer { right: auto; left: 14px; }
 
-.chip-count {
-  min-width: 17px;
-  height: 17px;
-  padding: 0 5px;
-  border-radius: 2px;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: 9.5px;
-  font-weight: 700;
-  display: inline-flex;
+#ix-head {
+  flex: 0 0 auto;
+  height: 46px;
+  padding: 0 8px 0 6px;
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
-#ix-drawer {
-  position: fixed;
-  top: 62px;
-  right: 14px;
-  bottom: 14px;
-  width: 446px;
-  max-width: calc(100vw - 28px);
-  z-index: 70;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
+.ix-tabs { display: flex; align-items: center; gap: 2px; height: 100%; }
+.ix-tab {
+  height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+}
+.ix-tab:hover { background: var(--hover); color: var(--text); }
+.ix-tab.active { background: var(--accent-soft); color: var(--text); }
+.ix-tab .badge { height: 16px; min-width: 16px; padding: 0 4px; font-size: 9px; border-radius: 2px; }
+#ix-head .icon-btn { width: 28px; height: 28px; }
