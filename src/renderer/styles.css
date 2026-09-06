@@ -1,33 +1,30 @@
-.device-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 8px;
-  border-radius: 3px;
-  text-align: start;
-  color: var(--text);
-  transition: background .1s;
-}
-.device-item:hover { background: var(--hover); }
-.device-item.active { background: var(--accent-soft); }
-.device-item .di-icon {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  border-radius: 2px;
-  background: var(--field);
-  color: var(--muted);
-  display: grid;
-  place-items: center;
-}
-.device-item.active .di-icon { background: var(--surface); color: var(--accent); }
-.device-item .di-icon svg { width: 13px; height: 13px; }
-.device-item .di-text { flex: 1 1 auto; min-width: 0; }
-.device-item .di-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.device-item .di-meta { font-size: 10px; color: var(--faint); margin-top: 1px; }
-.device-item .di-check { color: var(--accent); opacity: 0; }
-.device-item.active .di-check { opacity: 1; }
-.device-item .di-check svg { width: 14px; height: 14px; }
 
-/* ============================ FLOW + INTERCEPT =========================== */
+.chip-count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 2px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 9.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ix-drawer {
+  position: fixed;
+  top: 62px;
+  right: 14px;
+  bottom: 14px;
+  width: 446px;
+  max-width: calc(100vw - 28px);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
