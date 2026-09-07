@@ -1,33 +1,32 @@
-#ix-body-text {
-  min-height: 74px;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 10.5px;
-  line-height: 1.5;
-}
-#ix-detail .btn-row { margin-top: 2px; }
-.ix-code-row { align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
-.ix-code-row .mini-select { flex: 1 1 auto; }
+/* ------------------------------- flow list ------------------------------ */
 
-.ix-foot {
+.net-summary {
   flex: 0 0 auto;
-  border-top: 1px solid var(--border);
-  padding: 8px 10px;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.ns-cell {
+  padding: 9px 6px 8px;
+  text-align: center;
+  border-inline-end: 1px solid var(--border-soft);
+}
+.ns-cell:last-child { border-inline-end: 0; }
+.ns-cell b { display: block; font-size: 12.5px; font-weight: 650; letter-spacing: .2px; }
+.ns-cell span { display: block; margin-top: 2px; font-size: 8.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); }
+
+.net-list { display: flex; flex-direction: column; }
+.net-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px 34px 1fr auto auto;
   align-items: center;
-  gap: 8px;
-  min-height: 46px;
-}
-.ix-foot .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.mini-select {
-  height: 28px;
-  padding: 0 6px;
-  background: var(--field);
-  border: 1px solid var(--border);
-  border-radius: 2px;
+  gap: 7px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-soft);
   color: var(--text);
-  font-size: 10.5px;
-  outline: 0;
+  text-align: start;
+  transition: background .1s;
 }
-.mini-select:focus { border-color: var(--accent); }
-
+.net-row:hover { background: var(--hover); }
+.net-row.active { background: var(--accent-soft); }
