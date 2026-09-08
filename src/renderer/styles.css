@@ -1,33 +1,26 @@
 }
-.net-size, .net-ms { font-size: 9px; color: var(--faint); white-space: nowrap; direction: ltr; }
-.net-ms { min-width: 38px; text-align: end; }
+.net-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.net-actions .btn { height: 26px; padding: 0 9px; font-size: 10.5px; }
 
-/* ------------------------------ flow detail ----------------------------- */
-
-.net-detail { padding: 10px 12px 16px; }
-.net-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-.net-head .net-status { flex: 0 0 auto; min-width: 38px; margin-top: 1px; }
-.net-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 11px;
-  line-height: 1.45;
-  word-break: break-all;
-  direction: ltr;
-  text-align: start;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-}
-.net-title b { color: var(--accent); font-weight: 650; }
-.net-facts {
+.net-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin: 2px 0 10px;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
 }
-.net-facts span {
-  font-size: 9px;
+.net-tab {
+  height: 27px;
+  padding: 0 8px;
+  border-radius: 2px 2px 0 0;
+  font-size: 10px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  font-weight: 600;
   color: var(--muted);
-  background: var(--field);
-  border-radius: 2px;
-  padding: 2px 6px;
-  direction: ltr;
+  background: transparent;
+}
+.net-tab:hover { background: var(--hover); color: var(--text); }
+.net-tab.active { color: var(--text); background: var(--accent-soft); }
+
+.net-panel { font-size: 11px; }
