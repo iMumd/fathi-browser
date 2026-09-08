@@ -1,26 +1,28 @@
-}
-.net-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.net-actions .btn { height: 26px; padding: 0 9px; font-size: 10.5px; }
-
-.net-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 10px;
-}
-.net-tab {
-  height: 27px;
-  padding: 0 8px;
-  border-radius: 2px 2px 0 0;
-  font-size: 10px;
-  letter-spacing: .5px;
+.net-panel h4 {
+  margin: 12px 0 6px;
+  font-size: 9px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  font-weight: 600;
-  color: var(--muted);
-  background: transparent;
+  color: var(--faint);
+  font-weight: 650;
 }
-.net-tab:hover { background: var(--hover); color: var(--text); }
-.net-tab.active { color: var(--text); background: var(--accent-soft); }
+.net-panel h4:first-child { margin-top: 0; }
+.kv { display: grid; grid-template-columns: 92px 1fr; gap: 4px 8px; direction: ltr; text-align: start; }
+.kv dt { font-size: 10px; color: var(--faint); }
+.kv dd { font-size: 10.5px; margin: 0; word-break: break-all; }
 
-.net-panel { font-size: 11px; }
+.hdr-block {
+  background: var(--field);
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 8px 9px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 220px;
+  overflow: auto;
+  direction: ltr;
+  text-align: start;
+}
