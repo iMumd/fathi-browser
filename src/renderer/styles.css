@@ -1,30 +1,33 @@
-
-.net-status {
-  font-size: 9px;
-  font-weight: 700;
-  text-align: center;
-  padding: 2px 0;
-  border-radius: 2px;
-  background: var(--field);
-  color: var(--muted);
-  letter-spacing: .2px;
 }
-.net-status.ok { background: var(--ok-soft); color: var(--ok); }
-.net-status.warn { background: var(--warn-soft); color: var(--warn); }
-.net-status.err { background: var(--err-soft); color: var(--err); }
-.net-status.info { background: var(--accent-soft); color: var(--accent); }
+.net-size, .net-ms { font-size: 9px; color: var(--faint); white-space: nowrap; direction: ltr; }
+.net-ms { min-width: 38px; text-align: end; }
 
-.net-m {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  color: var(--muted);
-}
-.net-u {
+/* ------------------------------ flow detail ----------------------------- */
+
+.net-detail { padding: 10px 12px 16px; }
+.net-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.net-head .net-status { flex: 0 0 auto; min-width: 38px; margin-top: 1px; }
+.net-title {
+  flex: 1 1 auto;
   min-width: 0;
-  font-size: 10.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 1.45;
+  word-break: break-all;
   direction: ltr;
   text-align: start;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+.net-title b { color: var(--accent); font-weight: 650; }
+.net-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 2px 0 10px;
+}
+.net-facts span {
+  font-size: 9px;
+  color: var(--muted);
+  background: var(--field);
+  border-radius: 2px;
+  padding: 2px 6px;
+  direction: ltr;
