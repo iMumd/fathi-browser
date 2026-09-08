@@ -1,32 +1,30 @@
-/* ------------------------------- flow list ------------------------------ */
 
-.net-summary {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-bottom: 1px solid var(--border);
-}
-.ns-cell {
-  padding: 9px 6px 8px;
+.net-status {
+  font-size: 9px;
+  font-weight: 700;
   text-align: center;
-  border-inline-end: 1px solid var(--border-soft);
+  padding: 2px 0;
+  border-radius: 2px;
+  background: var(--field);
+  color: var(--muted);
+  letter-spacing: .2px;
 }
-.ns-cell:last-child { border-inline-end: 0; }
-.ns-cell b { display: block; font-size: 12.5px; font-weight: 650; letter-spacing: .2px; }
-.ns-cell span { display: block; margin-top: 2px; font-size: 8.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); }
+.net-status.ok { background: var(--ok-soft); color: var(--ok); }
+.net-status.warn { background: var(--warn-soft); color: var(--warn); }
+.net-status.err { background: var(--err-soft); color: var(--err); }
+.net-status.info { background: var(--accent-soft); color: var(--accent); }
 
-.net-list { display: flex; flex-direction: column; }
-.net-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 36px 34px 1fr auto auto;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border-soft);
-  color: var(--text);
-  text-align: start;
-  transition: background .1s;
+.net-m {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: var(--muted);
 }
-.net-row:hover { background: var(--hover); }
-.net-row.active { background: var(--accent-soft); }
+.net-u {
+  min-width: 0;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: ltr;
+  text-align: start;
