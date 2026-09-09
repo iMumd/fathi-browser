@@ -1,17 +1,4 @@
-.net-panel h4 {
-  margin: 12px 0 6px;
-  font-size: 9px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--faint);
-  font-weight: 650;
-}
-.net-panel h4:first-child { margin-top: 0; }
-.kv { display: grid; grid-template-columns: 92px 1fr; gap: 4px 8px; direction: ltr; text-align: start; }
-.kv dt { font-size: 10px; color: var(--faint); }
-.kv dd { font-size: 10.5px; margin: 0; word-break: break-all; }
-
-.hdr-block {
+.body-pre {
   background: var(--field);
   border: 1px solid var(--border-soft);
   border-radius: 2px;
@@ -20,9 +7,30 @@
   font-size: 10px;
   line-height: 1.55;
   white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 220px;
+  word-break: break-word;
+  max-height: 320px;
   overflow: auto;
   direction: ltr;
   text-align: start;
+  margin: 0;
 }
+
+.net-note {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  padding: 6px 8px;
+  margin-bottom: 5px;
+  border: 1px solid var(--border-soft);
+  border-inline-start: 2px solid var(--faint);
+  border-radius: 2px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--field);
+}
+.net-note.ok { border-inline-start-color: var(--ok); }
+.net-note.warn { border-inline-start-color: var(--warn); }
+.net-note.err { border-inline-start-color: var(--err); }
+.net-note.info { border-inline-start-color: var(--accent); }
+
