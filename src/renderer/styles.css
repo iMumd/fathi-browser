@@ -1,27 +1,30 @@
+.snav {
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 3px;
+  text-align: start;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: background .1s, color .1s;
 }
+.snav:hover { background: var(--hover); color: var(--text); }
+.snav.active { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-#settings-head {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 15px 18px 13px;
-  border-bottom: 1px solid var(--border);
-}
-
-.settings-title { display: flex; align-items: center; gap: 11px; }
-.settings-title img { width: 32px; height: 32px; border-radius: 4px; }
-.settings-title h1 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: 1.2px; text-transform: uppercase; }
-.settings-title p { margin: 2px 0 0; }
-
-#settings-nav {
-  padding: 10px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  border-inline-end: 1px solid var(--border);
-  background: var(--surface-2);
+#settings-body {
+  padding: 18px 20px 26px;
   overflow-y: auto;
+  user-select: text;
 }
+
+/* ================================= CARDS ================================= */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 15px 16px;
+  margin-bottom: 10px;
+}
+.card:last-child { margin-bottom: 0; }
 
