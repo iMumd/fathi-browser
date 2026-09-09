@@ -1,36 +1,35 @@
-.body-pre {
-  background: var(--field);
-  border: 1px solid var(--border-soft);
-  border-radius: 2px;
-  padding: 8px 9px;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 10px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 320px;
-  overflow: auto;
+.bar-row {
+  display: grid;
+  grid-template-columns: 96px 54px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
   direction: ltr;
   text-align: start;
-  margin: 0;
 }
+.bar-row .lbl { font-size: 9.5px; color: var(--muted); }
+.bar-row .val { font-size: 9.5px; color: var(--faint); text-align: end; }
+.bar-track { height: 6px; background: var(--field); border-radius: 1px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); border-radius: 1px; }
 
-.net-note {
-  display: flex;
-  gap: 7px;
-  align-items: flex-start;
-  padding: 6px 8px;
-  margin-bottom: 5px;
-  border: 1px solid var(--border-soft);
-  border-inline-start: 2px solid var(--faint);
-  border-radius: 2px;
-  font-size: 10.5px;
-  line-height: 1.5;
+.net-domains { display: flex; flex-direction: column; gap: 3px; }
+.net-domain {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  font-size: 10px;
   color: var(--muted);
-  background: var(--field);
+  direction: ltr;
+  text-align: start;
 }
-.net-note.ok { border-inline-start-color: var(--ok); }
-.net-note.warn { border-inline-start-color: var(--warn); }
-.net-note.err { border-inline-start-color: var(--err); }
-.net-note.info { border-inline-start-color: var(--accent); }
+.net-domain b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.net-slow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  font-size: 10px;
+  padding: 3px 0;
+  border-bottom: 1px dotted var(--border-soft);
+  direction: ltr;
+  text-align: start;
