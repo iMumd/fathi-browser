@@ -1,35 +1,31 @@
-.bar-row {
-  display: grid;
-  grid-template-columns: 96px 54px 1fr;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  direction: ltr;
-  text-align: start;
 }
-.bar-row .lbl { font-size: 9.5px; color: var(--muted); }
-.bar-row .val { font-size: 9.5px; color: var(--faint); text-align: end; }
-.bar-track { height: 6px; background: var(--field); border-radius: 1px; overflow: hidden; }
-.bar-fill { height: 100%; background: var(--accent); border-radius: 1px; }
+.net-slow span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.net-slow span:last-child { color: var(--warn); }
 
-.net-domains { display: flex; flex-direction: column; gap: 3px; }
-.net-domain {
+.code-box { position: relative; }
+.code-box pre { margin: 0; }
+.code-lang-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.code-lang-row .mini-select { flex: 1 1 auto; }
+/* ================================ OVERLAY ================================ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  font-size: 10px;
-  color: var(--muted);
-  direction: ltr;
-  text-align: start;
+  place-items: center;
+  padding: 28px;
+  background: var(--overlay);
 }
-.net-domain b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.net-slow {
+#settings-panel {
+  width: min(940px, calc(100vw - 56px));
+  height: min(730px, calc(100vh - 56px));
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  font-size: 10px;
-  padding: 3px 0;
-  border-bottom: 1px dotted var(--border-soft);
-  direction: ltr;
-  text-align: start;
+  grid-template-columns: 198px 1fr;
+  grid-template-rows: auto 1fr;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
