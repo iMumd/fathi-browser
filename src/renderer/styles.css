@@ -1,30 +1,32 @@
-.snav {
-  height: 32px;
-  padding: 0 11px;
-  border-radius: 3px;
-  text-align: start;
+.card h3 {
+  margin: 0 0 6px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 650;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card .hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--muted);
-  transition: background .1s, color .1s;
 }
-.snav:hover { background: var(--hover); color: var(--text); }
-.snav.active { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.card .hint:last-child { margin-bottom: 0; }
 
-#settings-body {
-  padding: 18px 20px 26px;
-  overflow-y: auto;
-  user-select: text;
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
 }
-
-/* ================================= CARDS ================================= */
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 15px 16px;
-  margin-bottom: 10px;
-}
-.card:last-child { margin-bottom: 0; }
+.row:first-of-type { border-top: 0; padding-top: 4px; }
+.row label { font-size: 12.5px; font-weight: 500; display: block; }
+.row .sub { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
 
