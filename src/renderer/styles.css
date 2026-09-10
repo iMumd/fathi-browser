@@ -1,25 +1,38 @@
-}
-
-select, input[type="text"], input[type="password"], textarea {
-  width: 100%;
+.btn {
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 3px;
   background: var(--field);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 9px 10px;
-  font-size: 12.5px;
-  outline: 0;
-  transition: border-color .12s, background .12s;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 550;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background .12s, color .12s, border-color .12s, opacity .12s;
 }
-select { appearance: none; padding-inline-end: 30px; cursor: pointer;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238B9098' stroke-width='2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
-}
-html.rtl select { background-position: left 9px center; padding-inline-end: 10px; padding-inline-start: 30px; }
-select:focus, input[type="text"]:focus, textarea:focus {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-textarea { min-height: 92px; resize: vertical; line-height: 1.55; }
-input[type="range"] { width: 100%; accent-color: var(--accent); }
+.btn:hover { background: var(--hover); }
+.btn:active { transform: scale(.985); }
+.btn:disabled { opacity: .55; pointer-events: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+.btn.danger { background: var(--err-soft); border-color: transparent; color: var(--err); }
+.btn.sm { height: 27px; padding: 0 9px; font-size: 11px; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn svg { width: 15px; height: 15px; }
 
+.btn-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 2px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
