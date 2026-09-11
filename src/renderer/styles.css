@@ -1,38 +1,27 @@
-.btn {
-  height: 32px;
-  padding: 0 13px;
-  border-radius: 3px;
-  background: var(--field);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 550;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  transition: background .12s, color .12s, border-color .12s, opacity .12s;
 }
-.btn:hover { background: var(--hover); }
-.btn:active { transform: scale(.985); }
-.btn:disabled { opacity: .55; pointer-events: none; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
-.btn.danger { background: var(--err-soft); border-color: transparent; color: var(--err); }
-.btn.sm { height: 27px; padding: 0 9px; font-size: 11px; }
-.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
-.btn svg { width: 15px; height: 15px; }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.err { background: var(--err-soft); color: var(--err); }
+.badge.accent { background: var(--accent-soft); color: var(--accent); }
 
-.btn-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
-
-.badge {
-  display: inline-flex;
+.kv {
+  display: flex;
   align-items: center;
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 2px;
-  background: var(--ok-soft);
-  color: var(--ok);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .5px;
-  text-transform: uppercase;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12.5px;
+}
+.kv:first-child { border-top: 0; padding-top: 2px; }
+.kv .k { color: var(--muted); }
+.kv .v { color: var(--text); font-weight: 500; text-align: end; word-break: break-all; }
+
+/* fingerprint list */
+.fp-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.fp-row:first-child { border-top: 0; }
