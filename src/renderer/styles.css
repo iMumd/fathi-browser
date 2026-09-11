@@ -1,27 +1,28 @@
+.fp-ua {
+  font-size: 11px;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-self: center;
 }
-.badge.warn { background: var(--warn-soft); color: var(--warn); }
-.badge.err { background: var(--err-soft); color: var(--err); }
-.badge.accent { background: var(--accent-soft); color: var(--accent); }
+.fp-tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tag b { color: var(--accent-strong); font-weight: 600; }
 
-.kv {
+/* extension list */
+.ext-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border-soft);
-  font-size: 12.5px;
-}
-.kv:first-child { border-top: 0; padding-top: 2px; }
-.kv .k { color: var(--muted); }
-.kv .v { color: var(--text); font-weight: 500; text-align: end; word-break: break-all; }
-
-/* fingerprint list */
-.fp-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 10px;
+  gap: 11px;
   padding: 10px 0;
   border-top: 1px solid var(--border-soft);
 }
-.fp-row:first-child { border-top: 0; }
+.ext-item:first-child { border-top: 0; }
