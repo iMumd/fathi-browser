@@ -1,33 +1,30 @@
-function normalizeInput(input) {
-  const s = String(input || '').trim();
-  if (!s) return null;
-  if (/^fathi:\/\//i.test(s)) return s;
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return s;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^\w+\.\w/.test(s)) return s;
-  if (/^(localhost|\[?[\d.a-f:]+\]?)(:\d+)?(\/.*)?$/i.test(s)) return 'http://' + s;
-  if (/^[^\s]+\.[a-z]{2,}(:\d+)?(\/.*)?$/i.test(s)) return 'https://' + s;
-  return searchUrl(s);
 }
 
-function esc(str) {
-  return String(str == null ? '' : str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+function makeTabElement(tab) {
+  const el = document.createElement('div');
+  el.className = 'tab';
+  el.setAttribute('role', 'tab');
+  el.dataset.id = tab.id;
+  el.innerHTML = `
+    <div class="tab-fpdot"></div>
+    <div class="tab-favicon">F</div>
+    <div class="tab-title">${esc(t('tab.new'))}</div>
+    <button class="tab-close" data-i18n-title="tab.close" aria-label="${esc(t('tab.close'))}">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>`;
+  el.title = t('tab.fp');
+
+  el.addEventListener('mousedown', (e) => {
+    if (e.button === 0) activate(tab.id);
+  });
+  el.querySelector('.tab-close').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeTab(tab.id);
+  });
+  el.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    if (window.api) window.api.win.toggleMaximize();
+  });
+  return el;
 }
 
-function newTabUrl() {
-  const lang = window.i18n.getLang();
-  const theme = (state.settings && state.settings.theme) || 'light';
-  return `fathi://newtab?lang=${lang}&theme=${theme}`;
-}
-
-/* ------------------------------------------------------------------- tabs */
-
-function activeTab() {
-  return state.tabs.find((tab) => tab.id === state.activeId) || null;
-}
-
-function tabByWcId(wcId) {
-  return state.tabs.find((tab) => {
-    try { return tab.wv && tab.wv.getWebContentsId() === wcId; } catch { return false; }
-  }) || null;
