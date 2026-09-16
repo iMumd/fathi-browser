@@ -1,42 +1,28 @@
 
-  const setTitle = (title) => {
-    tab.title = title || t('tab.untitled');
-    el.querySelector('.tab-title').textContent = tab.title;
-    el.title = tab.title + '\n' + (tab.url || '');
-    if (state.activeId === tab.id) document.title = tab.title + ' · Fathi';
-  };
-
-  const setFavicon = (src) => {
-    const box = el.querySelector('.tab-favicon');
-    if (!src) {
-      box.innerHTML = 'F';
-      return;
+  wv.addEventListener('did-start-navigation', (e) => {
+    if (!e.isMainFrame) return;
+    tab.url = e.url;
+    if (state.activeId === tab.id) {
+      updateSecurityIcon();
+      if (document.activeElement !== omnibox) updateOmnibox();
     }
-    tab.favicon = src;
-    box.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()" />`;
-  };
-
-  wv.addEventListener('did-start-loading', () => {
-    tab.loading = true;
-    el.classList.add('loading');
-    $('#progress').classList.add('active');
-    $('#bar').style.width = '18%';
-    if (state.activeId === tab.id) updateNavButtons();
   });
 
-  wv.addEventListener('did-stop-loading', () => {
-    tab.loading = false;
-    el.classList.remove('loading');
-    wv.classList.add('ready');
-    const bar = $('#bar');
-    bar.style.width = '100%';
-    setTimeout(() => {
-      $('#progress').classList.remove('active');
-      bar.style.width = '0%';
-    }, 240);
-    if (state.activeId === tab.id) {
-      updateNavButtons();
-      updateOmnibox();
-      updateSecurityIcon();
-    }
+  wv.addEventListener('did-navigate', (e) => {
+    tab.url = e.url;
+    if (state.activeId === tab.id) { updateOmnibox(); updateSecurityIcon(); updateNavButtons(); }
+  });
+
+  wv.addEventListener('did-navigate-in-page', (e) => {
+    if (!e.isMainFrame) return;
+    tab.url = e.url;
+    if (state.activeId === tab.id) { updateOmnibox(); updateSecurityIcon(); }
+  });
+
+  wv.addEventListener('page-title-updated', (e) => {
+    if (tab.url && tab.url.startsWith('fathi://newtab')) return;
+    setTitle(e.title);
+  });
+  wv.addEventListener('page-favicon-updated', (e) => {
+    if (e.favicons && e.favicons.length) setFavicon(e.favicons[0]);
   });
