@@ -1,29 +1,42 @@
 
-  tab.el = makeTabElement(tab);
+  const setTitle = (title) => {
+    tab.title = title || t('tab.untitled');
+    el.querySelector('.tab-title').textContent = tab.title;
+    el.title = tab.title + '\n' + (tab.url || '');
+    if (state.activeId === tab.id) document.title = tab.title + ' · Fathi';
+  };
 
-  const at = typeof opts.index === 'number' ? opts.index : state.tabs.length;
-  state.tabs.splice(at, 0, tab);
-  const ref = tabstrip.children[at] || null;
-  tabstrip.insertBefore(tab.el, ref);
+  const setFavicon = (src) => {
+    const box = el.querySelector('.tab-favicon');
+    if (!src) {
+      box.innerHTML = 'F';
+      return;
+    }
+    tab.favicon = src;
+    box.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()" />`;
+  };
 
-  wireWebview(tab);
-  activate(id);
+  wv.addEventListener('did-start-loading', () => {
+    tab.loading = true;
+    el.classList.add('loading');
+    $('#progress').classList.add('active');
+    $('#bar').style.width = '18%';
+    if (state.activeId === tab.id) updateNavButtons();
+  });
 
-  // Safety net: if the guest was created but no navigation started (rare
-  // first-attach race), kick it once more.
-  setTimeout(() => {
-    try {
-      if (!wv.getURL()) wv.loadURL(startUrl);
-    } catch {}
-  }, 1200);
-
-  if (opts.activate !== false) {
-    setTimeout(() => { try { wv.focus(); } catch {} }, 80);
-  }
-  refreshFingerprintList();
-  return tab;
-}
-
-function wireWebview(tab) {
-  const wv = tab.wv;
-  const el = tab.el;
+  wv.addEventListener('did-stop-loading', () => {
+    tab.loading = false;
+    el.classList.remove('loading');
+    wv.classList.add('ready');
+    const bar = $('#bar');
+    bar.style.width = '100%';
+    setTimeout(() => {
+      $('#progress').classList.remove('active');
+      bar.style.width = '0%';
+    }, 240);
+    if (state.activeId === tab.id) {
+      updateNavButtons();
+      updateOmnibox();
+      updateSecurityIcon();
+    }
+  });
