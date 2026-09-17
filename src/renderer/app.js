@@ -1,28 +1,35 @@
-}
-
-async function rotateTab(id) {
-  const tab = state.tabs.find((x) => x.id === id);
-  if (!tab) return;
-  const url = tab.url && !tab.url.startsWith('fathi://') ? tab.url : newTabUrl();
-  const idx = state.tabs.indexOf(tab);
-  const deviceId = (tab.fp && tab.fp.device && tab.fp.device.id) || 'desktop';
-  const landscape = !!(tab.fp && tab.fp.device && tab.fp.device.orientation === 'landscape');
-  await closeTab(id, { silent: true });
-  await createTab({ url, index: Math.min(idx, state.tabs.length), deviceId, landscape });
-  toast(t('toast.identity'), 'ok');
-}
-
-async function changeDevice(device, rotate) {
+function navigate(url) {
   const tab = activeTab();
   if (!tab) return;
-  const idx = state.tabs.indexOf(tab);
-  const url = tab.url && !tab.url.startsWith('fathi://') ? tab.url : newTabUrl();
-  const landscape = rotate === undefined
-    ? !!(tab.fp && tab.fp.device && tab.fp.device.orientation === 'landscape' && device.mobile)
-    : !!rotate;
-  await closeTab(tab.id, { silent: true });
-  await createTab({ url, index: Math.min(idx, state.tabs.length), deviceId: device.id, landscape });
-  toast(t('toast.deviceChanged'), 'ok');
-  closeDevicePopover();
+  const target = normalizeInput(url);
+  if (!target) return;
+  tab.url = target;
+  try { tab.wv.loadURL(target); } catch { tab.wv.setAttribute('src', target); }
+  omnibox.blur();
+}
+
+/* -------------------------------------------------------------- toolbar UI */
+
+function updateOmnibox() {
+  const tab = activeTab();
+  if (!tab) return;
+  const internal = tab.url && tab.url.startsWith('fathi://');
+  if (document.activeElement !== omnibox) {
+    omnibox.value = internal ? '' : (tab.url || '');
+  }
+  omnibox.placeholder = internal ? t('omni.placeholderInternal') : t('omni.placeholder');
+  $('#btn-omni-clear').classList.toggle('hidden', !omnibox.value);
+}
+
+function updateSecurityIcon() {
+  const tab = activeTab();
+  const icon = $('#omni-icon');
+  icon.className = '';
+  if (!tab || !tab.url || tab.url.startsWith('fathi:')) {
+    icon.title = t('omni.internal');
+    return;
+  }
+  if (tab.url.startsWith('https://')) { icon.classList.add('secure'); icon.title = t('omni.secure'); }
+  else { icon.classList.add('insecure'); icon.title = t('omni.insecure'); }
 }
 
