@@ -1,31 +1,38 @@
 
-  wv.addEventListener('did-fail-load', (e) => {
-    if (e.errorCode === -3 || !e.isMainFrame) return; // aborted
-    tab.loading = false;
-    el.classList.remove('loading');
-    setTitle(t('tab.loadFailed'));
-    if (state.activeId === tab.id) {
-      $('#progress').classList.remove('active');
-      $('#bar').style.width = '0%';
-    }
-  });
+  if (!dev) {
+    view.classList.remove('stage');
+    wv.classList.remove('device');
+    wv.style.width = '';
+    wv.style.height = '';
+    wv.style.left = '';
+    wv.style.top = '';
+    wv.style.transform = '';
+    return;
+  }
 
-  wv.addEventListener('render-process-gone', () => {
-    setTitle(t('tab.crashed'));
-    toast(t('toast.crashed'), 'err');
-  });
+  view.classList.add('stage');
+  wv.classList.add('device');
 
-  wv.addEventListener('dom-ready', () => {
-    wv.classList.add('ready');
-    try { wv.setZoomFactor(1); } catch {}
-    updateNavButtons();
-  });
+  const pad = 34;
+  const availW = Math.max(120, view.clientWidth - pad);
+  const availH = Math.max(160, view.clientHeight - pad);
+  const scale = Math.max(0.2, Math.min(availW / dev.width, availH / dev.height, 1));
 
-  wv.addEventListener('console-message', () => { /* silence */ });
+  wv.style.width = dev.width + 'px';
+  wv.style.height = dev.height + 'px';
+  wv.style.left = '50%';
+  wv.style.top = '50%';
+  wv.style.transform = `translate(-50%, -50%) scale(${scale})`;
 }
 
-/** Sizes the tab surface: fills the window on desktop, floats as a phone in device mode. */
-function applyTabLayout(tab) {
-  if (!tab || !tab.wv) return;
-  const dev = tab.fp && tab.fp.device && tab.fp.device.mobile ? tab.fp.device : null;
-  const wv = tab.wv;
+function activate(id) {
+  const tab = state.tabs.find((x) => x.id === id);
+  if (!tab) return;
+  state.activeId = id;
+
+  for (const other of state.tabs) {
+    const on = other.id === id;
+    other.el.classList.toggle('active', on);
+    other.el.setAttribute('aria-selected', on ? 'true' : 'false');
+    other.wv.classList.toggle('active', on);
+  }
