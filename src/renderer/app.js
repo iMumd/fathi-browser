@@ -1,32 +1,28 @@
-
-  document.title = (tab.title || 'Fathi') + ' · Fathi';
-  applyTabLayout(tab);
-  updateOmnibox();
-  updateSecurityIcon();
-  updateNavButtons();
-  updateChips();
-  refreshFingerprintList();
-  devOnTabChange();
-  highlightActiveTabInSettings();
 }
 
-async function closeTab(id, opts = {}) {
-  const idx = state.tabs.findIndex((tab) => tab.id === id);
-  if (idx === -1) return;
-  const tab = state.tabs[idx];
+async function rotateTab(id) {
+  const tab = state.tabs.find((x) => x.id === id);
+  if (!tab) return;
+  const url = tab.url && !tab.url.startsWith('fathi://') ? tab.url : newTabUrl();
+  const idx = state.tabs.indexOf(tab);
+  const deviceId = (tab.fp && tab.fp.device && tab.fp.device.id) || 'desktop';
+  const landscape = !!(tab.fp && tab.fp.device && tab.fp.device.orientation === 'landscape');
+  await closeTab(id, { silent: true });
+  await createTab({ url, index: Math.min(idx, state.tabs.length), deviceId, landscape });
+  toast(t('toast.identity'), 'ok');
+}
 
-  try { tab.wv.remove(); } catch {}
-  try { tab.el.remove(); } catch {}
-  window.api.tab.destroy(tab.partition);
+async function changeDevice(device, rotate) {
+  const tab = activeTab();
+  if (!tab) return;
+  const idx = state.tabs.indexOf(tab);
+  const url = tab.url && !tab.url.startsWith('fathi://') ? tab.url : newTabUrl();
+  const landscape = rotate === undefined
+    ? !!(tab.fp && tab.fp.device && tab.fp.device.orientation === 'landscape' && device.mobile)
+    : !!rotate;
+  await closeTab(tab.id, { silent: true });
+  await createTab({ url, index: Math.min(idx, state.tabs.length), deviceId: device.id, landscape });
+  toast(t('toast.deviceChanged'), 'ok');
+  closeDevicePopover();
+}
 
-  state.tabs.splice(idx, 1);
-
-  if (!state.tabs.length) {
-    if (!opts.silent) await createTab();
-    return;
-  }
-  if (state.activeId === id) {
-    const next = state.tabs[Math.min(idx, state.tabs.length - 1)];
-    activate(next.id);
-  }
-  refreshFingerprintList();
