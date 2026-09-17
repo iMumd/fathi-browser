@@ -1,35 +1,41 @@
-function navigate(url) {
+function updateNavButtons() {
   const tab = activeTab();
+  const back = $('#btn-back');
+  const fwd = $('#btn-fwd');
   if (!tab) return;
-  const target = normalizeInput(url);
-  if (!target) return;
-  tab.url = target;
-  try { tab.wv.loadURL(target); } catch { tab.wv.setAttribute('src', target); }
-  omnibox.blur();
+  const canBack = (() => { try { return tab.wv.canGoBack(); } catch { return false; } })();
+  const canFwd = (() => { try { return tab.wv.canGoForward(); } catch { return false; } })();
+  back.disabled = !canBack;
+  fwd.disabled = !canFwd;
+  $('#btn-reload').title = tab.loading ? t('nav.stop') : t('nav.reload');
+  $('#btn-reload').setAttribute('aria-label', $('#btn-reload').title);
 }
 
-/* -------------------------------------------------------------- toolbar UI */
+function deviceLabel(dev) {
+  if (!dev || !dev.mobile) return t('devices.desktop');
+  return dev.name;
+}
 
-function updateOmnibox() {
+function updateChips() {
   const tab = activeTab();
-  if (!tab) return;
-  const internal = tab.url && tab.url.startsWith('fathi://');
-  if (document.activeElement !== omnibox) {
-    omnibox.value = internal ? '' : (tab.url || '');
-  }
-  omnibox.placeholder = internal ? t('omni.placeholderInternal') : t('omni.placeholder');
-  $('#btn-omni-clear').classList.toggle('hidden', !omnibox.value);
-}
+  const fpChip = $('#chip-fp');
+  const pxChip = $('#chip-proxy');
+  const devChip = $('#chip-device');
 
-function updateSecurityIcon() {
-  const tab = activeTab();
-  const icon = $('#omni-icon');
-  icon.className = '';
-  if (!tab || !tab.url || tab.url.startsWith('fathi:')) {
-    icon.title = t('omni.internal');
-    return;
+  if (tab && tab.fp) {
+    const isMobile = !!(tab.fp.device && tab.fp.device.mobile);
+    const tag = isMobile
+      ? `${osLabel(tab.fp)} · ${tab.fp.device.width}×${tab.fp.device.height}`
+      : `${osLabel(tab.fp)} · ${tab.fp.screen.width}×${tab.fp.screen.height}`;
+    $('#chip-fp-text').textContent = tag;
+    fpChip.classList.add('on');
+    fpChip.title = `${t('chip.fingerprint')} ${tab.fp.id}\n${shortUa(tab.fp.ua)}\n${tab.fp.timezone}`;
+    $('#chip-device-text').textContent = deviceLabel(tab.fp.device);
+    devChip.classList.toggle('on', isMobile);
+    devChip.title = `${t('devices.active')}: ${deviceLabel(tab.fp.device)}`;
+  } else {
+    $('#chip-fp-text').textContent = t('chip.fingerprint');
+    fpChip.classList.remove('on');
+    $('#chip-device-text').textContent = t('devices.desktop');
+    devChip.classList.remove('on');
   }
-  if (tab.url.startsWith('https://')) { icon.classList.add('secure'); icon.title = t('omni.secure'); }
-  else { icon.classList.add('insecure'); icon.title = t('omni.insecure'); }
-}
-
