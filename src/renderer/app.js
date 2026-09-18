@@ -1,28 +1,32 @@
+});
+omnibox.addEventListener('input', () => {
+  $('#btn-omni-clear').classList.toggle('hidden', !omnibox.value);
+});
+$('#btn-omni-clear').addEventListener('click', () => {
+  omnibox.value = '';
+  omnibox.focus();
+  $('#btn-omni-clear').classList.add('hidden');
+});
 
-  const px = tab && tab.proxy;
-  if (px && px.enabled && px.host) {
-    $('#chip-proxy-text').textContent = px.host;
-    pxChip.classList.add('on');
-    pxChip.title = t('chip.proxyTitle', { host: px.host, mode: px.mode });
-  } else if (px && px.mode === 'rotate') {
-    $('#chip-proxy-text').textContent = t('chip.rotate');
-    pxChip.classList.add('on');
-  } else {
-    $('#chip-proxy-text').textContent = t('chip.direct');
-    pxChip.classList.remove('on');
-  }
-}
+/* -------------------------------------------------------------- nav action */
 
-/* ---------------------------------------------------------------- omnibox */
+$('#btn-back').addEventListener('click', () => { const x = activeTab(); try { x.wv.goBack(); } catch {} });
+$('#btn-fwd').addEventListener('click', () => { const x = activeTab(); try { x.wv.goForward(); } catch {} });
+$('#btn-reload').addEventListener('click', () => {
+  const x = activeTab();
+  if (!x) return;
+  try { x.loading ? x.wv.stop() : x.wv.reload(); } catch {}
+});
+$('#btn-home').addEventListener('click', () => {
+  const x = activeTab();
+  if (!x) return;
+  x.url = newTabUrl();
+  try { x.wv.loadURL(x.url); } catch {}
+});
 
-omnibox.addEventListener('focus', () => { omnibox.select(); });
-omnibox.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    const v = omnibox.value.trim();
-    if (v) navigate(v);
-    else omnibox.blur();
-  }
-  if (e.key === 'Escape') {
-    updateOmnibox();
-    omnibox.blur();
-  }
+$('#newtab-btn').addEventListener('click', () => createTab());
+$('#btn-shuffle').addEventListener('click', () => createTab());
+
+$('#win-min').addEventListener('click', () => window.api.win.minimize());
+$('#win-max').addEventListener('click', () => window.api.win.toggleMaximize());
+$('#win-close').addEventListener('click', () => window.api.win.close());
