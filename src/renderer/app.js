@@ -1,41 +1,28 @@
-function updateNavButtons() {
-  const tab = activeTab();
-  const back = $('#btn-back');
-  const fwd = $('#btn-fwd');
-  if (!tab) return;
-  const canBack = (() => { try { return tab.wv.canGoBack(); } catch { return false; } })();
-  const canFwd = (() => { try { return tab.wv.canGoForward(); } catch { return false; } })();
-  back.disabled = !canBack;
-  fwd.disabled = !canFwd;
-  $('#btn-reload').title = tab.loading ? t('nav.stop') : t('nav.reload');
-  $('#btn-reload').setAttribute('aria-label', $('#btn-reload').title);
-}
 
-function deviceLabel(dev) {
-  if (!dev || !dev.mobile) return t('devices.desktop');
-  return dev.name;
-}
-
-function updateChips() {
-  const tab = activeTab();
-  const fpChip = $('#chip-fp');
-  const pxChip = $('#chip-proxy');
-  const devChip = $('#chip-device');
-
-  if (tab && tab.fp) {
-    const isMobile = !!(tab.fp.device && tab.fp.device.mobile);
-    const tag = isMobile
-      ? `${osLabel(tab.fp)} · ${tab.fp.device.width}×${tab.fp.device.height}`
-      : `${osLabel(tab.fp)} · ${tab.fp.screen.width}×${tab.fp.screen.height}`;
-    $('#chip-fp-text').textContent = tag;
-    fpChip.classList.add('on');
-    fpChip.title = `${t('chip.fingerprint')} ${tab.fp.id}\n${shortUa(tab.fp.ua)}\n${tab.fp.timezone}`;
-    $('#chip-device-text').textContent = deviceLabel(tab.fp.device);
-    devChip.classList.toggle('on', isMobile);
-    devChip.title = `${t('devices.active')}: ${deviceLabel(tab.fp.device)}`;
+  const px = tab && tab.proxy;
+  if (px && px.enabled && px.host) {
+    $('#chip-proxy-text').textContent = px.host;
+    pxChip.classList.add('on');
+    pxChip.title = t('chip.proxyTitle', { host: px.host, mode: px.mode });
+  } else if (px && px.mode === 'rotate') {
+    $('#chip-proxy-text').textContent = t('chip.rotate');
+    pxChip.classList.add('on');
   } else {
-    $('#chip-fp-text').textContent = t('chip.fingerprint');
-    fpChip.classList.remove('on');
-    $('#chip-device-text').textContent = t('devices.desktop');
-    devChip.classList.remove('on');
+    $('#chip-proxy-text').textContent = t('chip.direct');
+    pxChip.classList.remove('on');
+  }
+}
+
+/* ---------------------------------------------------------------- omnibox */
+
+omnibox.addEventListener('focus', () => { omnibox.select(); });
+omnibox.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const v = omnibox.value.trim();
+    if (v) navigate(v);
+    else omnibox.blur();
+  }
+  if (e.key === 'Escape') {
+    updateOmnibox();
+    omnibox.blur();
   }
