@@ -1,27 +1,37 @@
-
-/* --------------------------------------------------------------- helpers */
-
-function fmtBytes(n) {
-  n = Number(n) || 0;
-  if (n < 1024) return n + ' B';
-  if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
-  return (n / 1048576).toFixed(2) + ' MB';
+function copyText(text) {
+  const value = String(text == null ? '' : text);
+  const done = () => toast(t('flow.copied'), 'ok');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(value).then(done).catch(() => fallbackCopy(value, done));
+    return;
+  }
+  fallbackCopy(value, done);
 }
 
-function fmtMs(n) {
-  n = Number(n) || 0;
-  if (n <= 0) return 'n/a';
-  if (n < 1000) return Math.round(n) + ' ms';
-  return (n / 1000).toFixed(2) + ' s';
+function fallbackCopy(value, done) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    done();
+  } catch {
+    toast('Copy failed', 'err');
+  }
 }
 
-function statusCls(s) {
-  s = Number(s) || 0;
-  if (!s) return '';
-  if (s >= 500) return 'err';
-  if (s >= 400) return 'warn';
-  if (s >= 300) return 'info';
-  if (s >= 200) return 'ok';
-  return '';
+function prettyUrl(u) {
+  try {
+    const x = new URL(u);
+    return x.host + x.pathname + (x.search || '');
+  } catch { return String(u || ''); }
 }
 
+function lowerHeaders(headers) {  const out = {};
+  for (const [k, v] of Object.entries(headers || {})) out[String(k).toLowerCase()] = v;
+  return out;
+}
