@@ -1,34 +1,27 @@
-});
 
-document.addEventListener('mousedown', (e) => {
-  if (!e.target.closest('#device-popover') && !e.target.closest('#chip-device')) closeDevicePopover();
-});
+/* --------------------------------------------------------------- helpers */
 
-/* -------------------------------------------------- flow + dev drawer */
+function fmtBytes(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
 
-const ix = { enabled: false, items: [], current: null, filter: '' };
+function fmtMs(n) {
+  n = Number(n) || 0;
+  if (n <= 0) return 'n/a';
+  if (n < 1000) return Math.round(n) + ' ms';
+  return (n / 1000).toFixed(2) + ' s';
+}
 
-const flow = {
-  wcId: null,
-  records: [],
-  filter: '',
-  selected: null,
-  detail: null,
-  detailTab: 'analysis',
-  scope: 'tab',
-  format: 'har',
-  codeLang: 'curl'
-};
+function statusCls(s) {
+  s = Number(s) || 0;
+  if (!s) return '';
+  if (s >= 500) return 'err';
+  if (s >= 400) return 'warn';
+  if (s >= 300) return 'info';
+  if (s >= 200) return 'ok';
+  return '';
+}
 
-const dev = { open: false, tab: 'flow' };
-
-const CODE_LANGS = [
-  ['curl', 'cURL'],
-  ['python', 'Python · requests'],
-  ['python-http', 'Python · http.client'],
-  ['php', 'PHP · cURL'],
-  ['node', 'Node.js · fetch'],
-  ['powershell', 'PowerShell'],
-  ['go', 'Go'],
-  ['raw', 'Raw HTTP']
-];
