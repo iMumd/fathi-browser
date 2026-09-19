@@ -1,36 +1,38 @@
-function deviceItemHtml(dev, activeId) {
-  const active = dev.id === activeId;
-  const meta = dev.mobile
-    ? t('devices.size', { w: dev.width, h: dev.height, dpr: dev.dpr })
-    : t('settings.nav.general');
-  return `<button class="device-item ${active ? 'active' : ''}" data-device="${esc(dev.id)}">
-    <span class="di-icon">${iconFor(dev)}</span>
-    <span class="di-text">
-      <span class="di-name">${esc(dev.mobile ? dev.name : t('devices.desktop'))}</span>
-      <span class="di-meta">${esc(meta)}</span>
-    </span>
-    <span class="di-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
-  </button>`;
+
+  const rotateBtn = $('#device-rotate');
+  const isMobile = !!(tab && tab.fp && tab.fp.device && tab.fp.device.mobile);
+  rotateBtn.classList.toggle('hidden', !isMobile);
 }
 
-function renderDevicePopover() {
-  const list = $('#device-list');
-  if (!list) return;
+function openDevicePopover() {
+  const pop = $('#device-popover');
+  renderDevicePopover();
+  pop.classList.remove('hidden');
+  const rect = $('#chip-device').getBoundingClientRect();
+  const width = 292;
+  let left = rect.right - width;
+  if (left < 12) left = 12;
+  if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+  let top = rect.bottom + 8;
+  const maxH = 430;
+  if (top + maxH > window.innerHeight - 12) top = Math.max(12, window.innerHeight - maxH - 12);
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+}
+
+function closeDevicePopover() {
+  $('#device-popover').classList.add('hidden');
+}
+
+$('#chip-device').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const pop = $('#device-popover');
+  if (pop.classList.contains('hidden')) openDevicePopover();
+  else closeDevicePopover();
+});
+
+$('#device-rotate').addEventListener('click', (e) => {
+  e.stopPropagation();
   const tab = activeTab();
-  const activeId = (tab && tab.fp && tab.fp.device && tab.fp.device.id) || 'desktop';
-  const groups = state.deviceGroups || {};
-  const order = ['desktop', 'apple', 'samsung', 'google', 'other'];
-  let html = '';
-  for (const key of order) {
-    const arr = groups[key];
-    if (!arr || !arr.length) continue;
-    html += `<div class="device-group-title">${esc(t('devices.group.' + key))}</div>`;
-    html += arr.map((d) => deviceItemHtml(d, activeId)).join('');
-  }
-  list.innerHTML = html;
-  list.querySelectorAll('[data-device]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const dev = state.devices.find((d) => d.id === btn.dataset.device) || state.desktop;
-      changeDevice(dev);
-    });
-  });
+  if (!tab || !tab.fp.device || !tab.fp.device.mobile) return;
+  changeDevice(tab.fp.device, tab.fp.device.orientation !== 'landscape');
