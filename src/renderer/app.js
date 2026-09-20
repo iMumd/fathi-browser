@@ -1,37 +1,30 @@
-function copyText(text) {
-  const value = String(text == null ? '' : text);
-  const done = () => toast(t('flow.copied'), 'ok');
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(value).then(done).catch(() => fallbackCopy(value, done));
-    return;
-  }
-  fallbackCopy(value, done);
+
+function headerPairs(headers) {
+  return Object.entries(headers || {}).filter(([k]) => {
+    const n = String(k).toLowerCase();
+    if (n.startsWith(':')) return false;
+    return !['host', 'content-length', 'connection', 'accept-encoding', 'transfer-encoding',
+      'http2-settings', 'upgrade', 'proxy-connection'].includes(n);
+  });
 }
 
-function fallbackCopy(value, done) {
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = value;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
-    done();
-  } catch {
-    toast('Copy failed', 'err');
-  }
+/* ------------------------------------------------------------ code gen */
+
+function shq(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
+function dq(s) {
+  return '"' + String(s)
+    .replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+    .replace(/\r/g, '\\r').replace(/\n/g, '\\n') + '"';
+}
+function phpq(s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
+function goq(s) {
+  return '`' + String(s).replace(/`/g, '` + "`" + `') + '`';
 }
 
-function prettyUrl(u) {
-  try {
-    const x = new URL(u);
-    return x.host + x.pathname + (x.search || '');
-  } catch { return String(u || ''); }
-}
-
-function lowerHeaders(headers) {  const out = {};
-  for (const [k, v] of Object.entries(headers || {})) out[String(k).toLowerCase()] = v;
-  return out;
-}
+function codeFor(rec, lang) {
+  const url = rec.url || '';
+  const method = (rec.method || 'GET').toUpperCase();
+  const headers = headerPairs(rec.requestHeaders);
+  const body = rec.postData || '';
+  let u;
+  try { u = new URL(url); } catch { u = null; }
