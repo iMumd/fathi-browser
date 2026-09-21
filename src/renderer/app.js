@@ -1,29 +1,35 @@
 
-  if (lang === 'node') {
-    const hs = headers.map(([k, v]) => `    ${dq(k)}: ${dq(v)},`).join('\n');
+  if (lang === 'go') {
+    const hs = headers.map(([k, v]) => `  req.Header.Set(${dq(k)}, ${dq(v)})`).join('\n');
     return [
-      'const res = await fetch(' + dq(url) + ', {',
-      `  method: ${dq(method)},`,
-      '  headers: {',
+      'package main',
+      '',
+      'import (',
+      '  "fmt"',
+      '  "io"',
+      '  "net/http"',
+      '  "strings"',
+      '  "time"',
+      ')',
+      '',
+      'func main() {',
+      body ? `  body := strings.NewReader(${goq(body)})` : '  var body io.Reader',
+      `  req, err := http.NewRequest(${dq(method)}, ${dq(url)}, body)`,
+      '  if err != nil { panic(err) }',
       hs,
-      '  },',
-      body ? `  body: ${dq(body)},` : null,
-      '});',
-      'console.log(res.status);',
-      'console.log(await res.text());'
-    ].filter((x) => x !== null).join('\n');
+      '  res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)',
+      '  if err != nil { panic(err) }',
+      '  defer res.Body.Close()',
+      '  out, _ := io.ReadAll(res.Body)',
+      '  fmt.Println(res.Status)',
+      '  fmt.Println(string(out))',
+      '}'
+    ].filter((x) => x !== '' || true).join('\n');
   }
 
-  if (lang === 'powershell') {
-    const hs = headers.map(([k, v]) => `    ${dq(k)} = ${dq(v)}`).join('\n');
-    return [
-      '$headers = @{',
-      hs,
-      '}',
-      body ? `$body = @'\n${body}\n'@` : '$body = $null',
-      '',
-      `$r = Invoke-WebRequest -Uri ${dq(url)} -Method ${method} -Headers $headers -Body $body`,
-      '$r.StatusCode',
-      '$r.Content'
-    ].join('\n');
-  }
+  // cURL is the default
+  const parts = [`curl -X ${method} ${shq(url)}`];
+  for (const [k, v] of headers) parts.push(`  -H ${shq(k + ': ' + v)}`);
+  if (body) parts.push(`  --data-raw ${shq(body)}`);
+  parts.push('  --compressed --insecure -sS');
+  return parts.join(' \\\n');
