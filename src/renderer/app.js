@@ -1,35 +1,30 @@
+}
 
-  if (lang === 'go') {
-    const hs = headers.map(([k, v]) => `  req.Header.Set(${dq(k)}, ${dq(v)})`).join('\n');
-    return [
-      'package main',
-      '',
-      'import (',
-      '  "fmt"',
-      '  "io"',
-      '  "net/http"',
-      '  "strings"',
-      '  "time"',
-      ')',
-      '',
-      'func main() {',
-      body ? `  body := strings.NewReader(${goq(body)})` : '  var body io.Reader',
-      `  req, err := http.NewRequest(${dq(method)}, ${dq(url)}, body)`,
-      '  if err != nil { panic(err) }',
-      hs,
-      '  res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)',
-      '  if err != nil { panic(err) }',
-      '  defer res.Body.Close()',
-      '  out, _ := io.ReadAll(res.Body)',
-      '  fmt.Println(res.Status)',
-      '  fmt.Println(string(out))',
-      '}'
-    ].filter((x) => x !== '' || true).join('\n');
+/* ------------------------------------------------------------- intercept */
+
+function ixUpdateChrome() {
+  const count = ix.items.length;
+  const chip = $('#chip-intercept');
+  const badge = $('#chip-intercept-count');
+  if (badge) {
+    badge.textContent = String(count);
+    badge.classList.toggle('hidden', count === 0);
   }
+  if (chip) {
+    chip.classList.toggle('on', ix.enabled);
+    chip.title = `${t('intercept.title')} · ${ix.enabled ? t('intercept.on') : t('intercept.off')}`;
+  }
+  const toggle = $('#ix-toggle');
+  if (toggle) toggle.classList.toggle('on', ix.enabled);
+  const pane = $('#pane-intercept');
+  if (pane) pane.classList.toggle('on', ix.enabled);
+  const stateText = $('#ix-state-text');
+  if (stateText) stateText.textContent = ix.enabled ? t('intercept.on') : t('intercept.off');
+  const countEl = $('#ix-count');
+  if (countEl) countEl.textContent = String(count);
+  const hint = $('#ix-hint');
+  if (hint) hint.textContent = ix.enabled ? t('intercept.hint') : t('intercept.off');
+  const filter = $('#ix-filter');
+  if (filter && document.activeElement !== filter) filter.value = ix.filter || '';
+}
 
-  // cURL is the default
-  const parts = [`curl -X ${method} ${shq(url)}`];
-  for (const [k, v] of headers) parts.push(`  -H ${shq(k + ': ' + v)}`);
-  if (body) parts.push(`  --data-raw ${shq(body)}`);
-  parts.push('  --compressed --insecure -sS');
-  return parts.join(' \\\n');
