@@ -1,37 +1,29 @@
-
-  $('#net-total').textContent = String(st.count);
-  $('#net-bytes').textContent = fmtBytes(st.bytes);
-  $('#net-avg').textContent = fmtMs(st.avgMs);
-  $('#net-fail').textContent = String(st.failed);
-
-  const badge = $('#ix-net-count');
-  if (badge) badge.textContent = String(flow.records.length);
-  const chipCount = $('#chip-flow-count');
-  if (chipCount) {
-    chipCount.textContent = String(flow.records.length);
-    chipCount.classList.toggle('hidden', flow.records.length === 0);
-  }
-
-  const box = $('#net-list');
-  if (!box) return;
-  if (!list.length) {
-    box.innerHTML = `<div class="ix-empty">${esc(t('flow.empty'))}</div>`;
-    return;
-  }
-  box.innerHTML = list.slice(-500).reverse().map(netRow).join('');
-  box.querySelectorAll('[data-net]').forEach((b) => {
-    b.addEventListener('click', () => flowOpen(b.dataset.net, b.dataset.wc));
-  });
 }
 
-async function flowLoad() {
-  flow.wcId = flowWcId();
-  if (flow.wcId == null && flow.scope !== 'all') {
-    flow.records = [];
-    flowRender();
-    return;
-  }
-  const res = await window.api.net.list({ wcId: flow.wcId, all: flow.scope === 'all' });
-  if (!res || !res.ok) return;
-  flow.records = res.records || [];
+function flowBack() {
+  flow.selected = null;
+  flow.detail = null;
+  const list = $('#net-list');
+  const detail = $('#net-detail');
+  if (list) list.classList.remove('hidden');
+  if (detail) { detail.classList.add('hidden'); detail.innerHTML = ''; }
   flowRender();
+}
+
+async function flowOpen(id, wcId) {
+  const targetWc = Number(wcId) || flow.wcId;
+  const res = await window.api.net.detail({ wcId: targetWc, id });
+  if (!res || !res.ok) return toast((res && res.error) || 'Request not found', 'err');
+  flow.selected = id;
+  flow.detail = res.record;
+  flow.detailTab = 'analysis';
+  flow.codeLang = 'curl';
+  $('#net-list').classList.add('hidden');
+  $('#net-detail').classList.remove('hidden');
+  flowRenderDetail();
+}
+
+function flowRenderDetail() {
+  const r = flow.detail;
+  const d = $('#net-detail');
+  if (!r || !d) return;
