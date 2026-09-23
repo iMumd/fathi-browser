@@ -1,32 +1,31 @@
 
-  if (flow.detailTab === 'code') {
-    panel.innerHTML = `
-      <div class="code-lang-row">
-        <select id="net-code-lang" class="mini-select">
-          ${CODE_LANGS.map(([id, label]) => `<option value="${id}" ${flow.codeLang === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}
-        </select>
-        <button class="btn sm primary" id="net-code-copy">${esc(t('flow.copyCode'))}</button>
-      </div>
-      <pre class="body-pre code-box" id="net-code-pre">${esc(codeFor(r, flow.codeLang))}</pre>`;
-    $('#net-code-lang').addEventListener('change', (e) => {
-      flow.codeLang = e.target.value;
-      $('#net-code-pre').textContent = codeFor(r, flow.codeLang);
-    });
-    $('#net-code-copy').addEventListener('click', () => copyText(codeFor(r, flow.codeLang)));
-    return;
-  }
+    <h4>${esc(t('flow.fullFlow'))} · ${esc(t('flow.requests'))}</h4>
+    <dl class="kv">
+      <dt>${esc(t('flow.requests'))}</dt><dd>${stats.count}</dd>
+      <dt>${esc(t('flow.transferred'))}</dt><dd>${fmtBytes(stats.bytes)}</dd>
+      <dt>${esc(t('flow.avg'))}</dt><dd>${fmtMs(stats.avgMs)}</dd>
+      <dt>${esc(t('flow.failed'))}</dt><dd>${stats.failed}</dd>
+      <dt>${esc(t('flow.statuses'))}</dt><dd>2xx ${sc.s2} · 3xx ${sc.s3} · 4xx ${sc.s4} · 5xx ${sc.s5}</dd>
+    </dl>
 
-  // analysis
-  const stats = calcStats(flow.records);
-  const notes = flowNotes(r);
-  const total = Math.max(1, Number(r.timing && r.timing.total) || 1);
-  const sc = stats.statuses;
-  panel.innerHTML = `
-    <h4>${esc(t('flow.notes'))}</h4>
-    ${notes.map(([kind, text]) => `<div class="net-note ${kind}">${esc(text)}</div>`).join('')}
+    <h4>${esc(t('flow.slowest'))}</h4>
+    ${stats.slowest.length
+      ? stats.slowest.map((s) => `<div class="net-slow"><span title="${esc(s.url)}">${esc(prettyUrl(s.url))}</span><span>${fmtMs(s.ms)}</span></div>`).join('')
+      : `<div class="ix-empty">${esc(t('flow.empty'))}</div>`}
 
-    <h4>${esc(t('flow.timing'))}</h4>
-    ${barRow(t('flow.hdrWait'), r.timing && r.timing.wait, total)}
-    ${barRow(t('flow.hdrReceive'), r.timing && r.timing.receive, total)}
-    ${barRow(t('flow.hdrDns'), r.timing && r.timing.dns, total)}
-    ${barRow(t('flow.hdrSsl'), r.timing && r.timing.ssl, total)}
+    <h4>${esc(t('flow.domains'))}</h4>
+    <div class="net-domains">
+      ${stats.domains.map((d) => `<div class="net-domain"><b>${esc(d.host)}</b><span>${d.count}</span><span>${fmtBytes(d.bytes)}</span></div>`).join('')}
+    </div>`;
+}
+
+function barRow(label, value, total) {
+  const n = Math.max(0, Number(value) || 0);
+  const pct = Math.max(0, Math.min(100, (n / Math.max(1, total)) * 100));
+  return `<div class="bar-row">
+    <span class="lbl">${esc(label)}</span>
+    <span class="val">${n > 0 ? Math.round(n) + ' ms' : 'n/a'}</span>
+    <span class="bar-track"><span class="bar-fill" style="width:${pct.toFixed(1)}%"></span></span>
+  </div>`;
+}
+
