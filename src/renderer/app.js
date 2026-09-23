@@ -1,36 +1,32 @@
 
-  if (flow.detailTab === 'response') {
-    const headers = Object.entries(r.responseHeaders || {}).map(([k, v]) => `${k}: ${v}`).join('\n');
-    const body = r.body == null ? '' : String(r.body);
+  if (flow.detailTab === 'code') {
     panel.innerHTML = `
-      <h4>${esc(t('flow.responseHeaders'))}</h4>
-      <div class="hdr-block">${esc(headers || 'n/a')}</div>
-      <h4>${esc(t('flow.responseBody'))}</h4>
-      ${body ? `<pre class="body-pre">${esc(clip(body))}</pre>${r.bodyTruncated ? `<div class="net-note info">${esc(t('flow.truncated'))}</div>` : ''}` : `<div class="ix-empty">${esc(t('flow.noBody'))}</div>`}`;
+      <div class="code-lang-row">
+        <select id="net-code-lang" class="mini-select">
+          ${CODE_LANGS.map(([id, label]) => `<option value="${id}" ${flow.codeLang === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+        </select>
+        <button class="btn sm primary" id="net-code-copy">${esc(t('flow.copyCode'))}</button>
+      </div>
+      <pre class="body-pre code-box" id="net-code-pre">${esc(codeFor(r, flow.codeLang))}</pre>`;
+    $('#net-code-lang').addEventListener('change', (e) => {
+      flow.codeLang = e.target.value;
+      $('#net-code-pre').textContent = codeFor(r, flow.codeLang);
+    });
+    $('#net-code-copy').addEventListener('click', () => copyText(codeFor(r, flow.codeLang)));
     return;
   }
 
-  if (flow.detailTab === 'timing') {
-    const tm = r.timing || {};
-    const total = Math.max(1, Number(tm.total) || 1);
-    const rows = [
-      ['flow.hdrDns', tm.dns],
-      ['flow.hdrConnect', tm.connect],
-      ['flow.hdrSsl', tm.ssl],
-      ['flow.hdrSend', tm.send],
-      ['flow.hdrWait', tm.wait],
-      ['flow.hdrReceive', tm.receive]
-    ];
-    panel.innerHTML = `
-      <h4>${esc(t('flow.timing'))}</h4>
-      ${rows.map(([key, value]) => barRow(t(key), value, total)).join('')}
-      ${barRow(t('flow.hdrTotal'), total, total)}
-      <h4>${esc(t('flow.analysis'))}</h4>
-      <dl class="kv">
-        <dt>${esc(t('flow.ip'))}</dt><dd>${esc(r.remoteIPAddress || 'n/a')}${r.remotePort ? ':' + r.remotePort : ''}</dd>
-        <dt>Protocol</dt><dd>${esc(r.protocol || 'n/a')}</dd>
-        <dt>${esc(t('flow.source'))}</dt><dd>${esc(r.fromCache ? t('flow.cached') : r.fromServiceWorker ? t('flow.serviceWorker') : t('flow.network'))}</dd>
-        <dt>${esc(t('flow.time'))}</dt><dd>${fmtMs(tm.total)}</dd>
-      </dl>`;
-    return;
-  }
+  // analysis
+  const stats = calcStats(flow.records);
+  const notes = flowNotes(r);
+  const total = Math.max(1, Number(r.timing && r.timing.total) || 1);
+  const sc = stats.statuses;
+  panel.innerHTML = `
+    <h4>${esc(t('flow.notes'))}</h4>
+    ${notes.map(([kind, text]) => `<div class="net-note ${kind}">${esc(text)}</div>`).join('')}
+
+    <h4>${esc(t('flow.timing'))}</h4>
+    ${barRow(t('flow.hdrWait'), r.timing && r.timing.wait, total)}
+    ${barRow(t('flow.hdrReceive'), r.timing && r.timing.receive, total)}
+    ${barRow(t('flow.hdrDns'), r.timing && r.timing.dns, total)}
+    ${barRow(t('flow.hdrSsl'), r.timing && r.timing.ssl, total)}
