@@ -1,31 +1,36 @@
+function flowNotes(r) {
+  const notes = [];
+  const tm = r.timing || {};
+  const headers = lowerHeaders(r.responseHeaders);
+  const mime = String(r.mimeType || '');
+  const texty = /text|json|xml|javascript|css|html/i.test(mime);
 
-    <h4>${esc(t('flow.fullFlow'))} · ${esc(t('flow.requests'))}</h4>
-    <dl class="kv">
-      <dt>${esc(t('flow.requests'))}</dt><dd>${stats.count}</dd>
-      <dt>${esc(t('flow.transferred'))}</dt><dd>${fmtBytes(stats.bytes)}</dd>
-      <dt>${esc(t('flow.avg'))}</dt><dd>${fmtMs(stats.avgMs)}</dd>
-      <dt>${esc(t('flow.failed'))}</dt><dd>${stats.failed}</dd>
-      <dt>${esc(t('flow.statuses'))}</dt><dd>2xx ${sc.s2} · 3xx ${sc.s3} · 4xx ${sc.s4} · 5xx ${sc.s5}</dd>
-    </dl>
-
-    <h4>${esc(t('flow.slowest'))}</h4>
-    ${stats.slowest.length
-      ? stats.slowest.map((s) => `<div class="net-slow"><span title="${esc(s.url)}">${esc(prettyUrl(s.url))}</span><span>${fmtMs(s.ms)}</span></div>`).join('')
-      : `<div class="ix-empty">${esc(t('flow.empty'))}</div>`}
-
-    <h4>${esc(t('flow.domains'))}</h4>
-    <div class="net-domains">
-      ${stats.domains.map((d) => `<div class="net-domain"><b>${esc(d.host)}</b><span>${d.count}</span><span>${fmtBytes(d.bytes)}</span></div>`).join('')}
-    </div>`;
+  if (r.failed) notes.push(['err', t('flow.noteFailed').replace('{error}', r.errorText || '')]);
+  if (r.status >= 400) notes.push([statusCls(r.status), t('flow.noteStatus').replace('{s}', r.status)]);
+  if (/^http:/i.test(r.url)) notes.push(['warn', t('flow.noteHttps')]);
+  if (r.fromCache) notes.push(['info', t('flow.noteCache')]);
+  if (texty && r.size > 50000 && !headers['content-encoding']) notes.push(['warn', t('flow.noteCompression')]);
+  if (r.size > 1048576) notes.push(['warn', t('flow.noteLarge').replace('{size}', fmtBytes(r.size))]);
+  if (/^image\//i.test(mime) && r.size > 300000) notes.push(['warn', t('flow.noteImage').replace('{size}', fmtBytes(r.size))]);
+  if (tm.wait > 500) notes.push(['warn', t('flow.noteTtfb').replace('{ms}', Math.round(tm.wait))]);
+  if (tm.dns > 100) notes.push(['info', t('flow.noteDns').replace('{ms}', Math.round(tm.dns))]);
+  if (tm.ssl > 200) notes.push(['info', t('flow.noteTls').replace('{ms}', Math.round(tm.ssl))]);
+  if (r.redirectURL) notes.push(['info', t('flow.noteRedirect').replace('{url}', r.redirectURL)]);
+  if (!notes.length) notes.push(['ok', t('flow.noteOk')]);
+  return notes;
 }
 
-function barRow(label, value, total) {
-  const n = Math.max(0, Number(value) || 0);
-  const pct = Math.max(0, Math.min(100, (n / Math.max(1, total)) * 100));
-  return `<div class="bar-row">
-    <span class="lbl">${esc(label)}</span>
-    <span class="val">${n > 0 ? Math.round(n) + ' ms' : 'n/a'}</span>
-    <span class="bar-track"><span class="bar-fill" style="width:${pct.toFixed(1)}%"></span></span>
-  </div>`;
+function clip(text) {
+  const s = String(text == null ? '' : text);
+  return s.length > 60000 ? s.slice(0, 60000) + '\n…' : s;
 }
 
+async function flowSave() {
+  const format = $('#net-format').value;
+  const all = $('#net-scope').value === 'all';
+  const res = await window.api.net.export({ format, wcId: flowWcId(), all });
+  if (res && res.ok) {
+    if (res.path) toast(t('flow.saved').replace('{path}', res.path), 'ok');
+  } else if (res && res.error) {
+    toast(res.error, 'err');
+  }
