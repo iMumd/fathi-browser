@@ -1,33 +1,33 @@
 }
 
-async function flowClear() {
-  const all = $('#net-scope').value === 'all';
-  await window.api.net.clear({ wcId: flowWcId(), all });
-  flow.records = [];
-  flow.selected = null;
-  flow.detail = null;
-  $('#net-detail').classList.add('hidden');
-  $('#net-list').classList.remove('hidden');
-  flowRender();
-  toast(t('flow.cleared'), 'ok');
-}
-
-/* ------------------------------------------------------------- dev drawer */
-
-function devOpen(tab) {
-  dev.open = true;
-  $('#ix-drawer').classList.remove('hidden');
-  devSwitch(tab || dev.tab);
+function devSwitch(tab) {
+  dev.tab = tab === 'intercept' ? 'intercept' : 'flow';
+  document.querySelectorAll('.ix-tab').forEach((b) => {
+    b.classList.toggle('active', b.dataset.devTab === dev.tab);
+  });
+  $('#pane-flow').classList.toggle('hidden', dev.tab !== 'flow');
+  $('#pane-intercept').classList.toggle('hidden', dev.tab !== 'intercept');
+  if (dev.tab === 'flow') flowLoad();
+  else ixRenderList();
   ixUpdateChrome();
-  ixRenderList();
-  setTimeout(() => {
-    const f = dev.tab === 'flow' ? $('#net-filter') : $('#ix-filter');
-    if (f) f.focus();
-  }, 70);
 }
 
-function devClose() {
-  dev.open = false;
-  $('#ix-drawer').classList.add('hidden');
-  if (dev.tab === 'flow') flowBack();
-  else ixBack();
+function devToggle(tab) {
+  if (dev.open && dev.tab === tab) devClose();
+  else devOpen(tab);
+}
+
+function devOnTabChange() {
+  if (dev.open && dev.tab === 'flow') flowLoad();
+}
+
+function ixOpenDrawer() { devOpen('intercept'); }
+function ixCloseDrawer() { devClose(); }
+
+/* -------------------------------------------------------------- wiring */
+
+$('#chip-flow').addEventListener('click', () => devToggle('flow'));
+$('#chip-intercept').addEventListener('click', () => devToggle('intercept'));
+$('#ix-close').addEventListener('click', devClose);
+document.querySelectorAll('.ix-tab').forEach((b) => {
+  b.addEventListener('click', () => devSwitch(b.dataset.devTab));
