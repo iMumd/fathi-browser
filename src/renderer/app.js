@@ -1,31 +1,32 @@
 });
 
-$('#ix-back').addEventListener('click', ixBack);
-$('#ix-toggle').addEventListener('click', async () => {
-  const res = await window.api.intercept.set(!ix.enabled);
-  if (res && res.ok) {
-    ix.enabled = !!res.state.enabled;
-    ixUpdateChrome();
-  } else if (res && res.error) {
-    toast(res.error, 'err');
-  }
+let ixFilterTimer = null;
+$('#ix-filter').addEventListener('input', (e) => {
+  const value = e.target.value;
+  ix.filter = value;
+  clearTimeout(ixFilterTimer);
+  ixFilterTimer = setTimeout(() => { window.api.intercept.filter(value); }, 350);
 });
 
-$('#ix-forward').addEventListener('click', () => ixResolve('continue'));
-$('#ix-drop').addEventListener('click', () => ixResolve('drop'));
-
-$('#ix-code-copy').addEventListener('click', () => {
-  const rec = ixCurrentRecord();
-  if (rec) copyText(codeFor(rec, $('#ix-code-lang').value));
-});
-$('#ix-copy-curl').addEventListener('click', () => {
-  const rec = ixCurrentRecord();
-  if (rec) copyText(codeFor(rec, 'curl'));
+let flowFilterTimer = null;
+$('#net-filter').addEventListener('input', (e) => {
+  flow.filter = e.target.value;
+  clearTimeout(flowFilterTimer);
+  flowFilterTimer = setTimeout(flowRender, 110);
 });
 
-$('#ix-forward-all').addEventListener('click', async () => {
-  const res = await window.api.intercept.drain();
-  ix.items = [];
-  ixBack();
-  ixUpdateChrome();
-  if (res && res.ok) toast(t('intercept.forwardAll'), 'ok');
+$('#net-scope').addEventListener('change', (e) => {
+  flow.scope = e.target.value === 'all' ? 'all' : 'tab';
+  flowBack();
+  flowLoad();
+});
+
+$('#net-save').addEventListener('click', flowSave);
+$('#net-clear').addEventListener('click', flowClear);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('#ix-drawer').classList.contains('hidden')) devClose();
+});
+
+/* ------------------------------------------------------------- settings UI */
+
