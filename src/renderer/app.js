@@ -1,32 +1,36 @@
+function openSettings(section) {
+  if (section) state.section = section;
+  $('#settings-overlay').classList.remove('hidden');
+  $$('.snav').forEach((b) => b.classList.toggle('active', b.dataset.section === state.section));
+  renderSection(state.section);
+}
+
+function closeSettings() {
+  $('#settings-overlay').classList.add('hidden');
+}
+
+$('#btn-menu').addEventListener('click', () => openSettings());
+$('#settings-close').addEventListener('click', closeSettings);
+$('#settings-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'settings-overlay') closeSettings();
+});
+$$('.snav').forEach((b) => {
+  b.addEventListener('click', () => {
+    state.section = b.dataset.section;
+    $$('.snav').forEach((x) => x.classList.toggle('active', x === b));
+    renderSection(state.section);
+  });
 });
 
-let ixFilterTimer = null;
-$('#ix-filter').addEventListener('input', (e) => {
-  const value = e.target.value;
-  ix.filter = value;
-  clearTimeout(ixFilterTimer);
-  ixFilterTimer = setTimeout(() => { window.api.intercept.filter(value); }, 350);
-});
+$('#chip-fp').addEventListener('click', () => openSettings('fingerprint'));
+$('#chip-proxy').addEventListener('click', () => openSettings('proxy'));
 
-let flowFilterTimer = null;
-$('#net-filter').addEventListener('input', (e) => {
-  flow.filter = e.target.value;
-  clearTimeout(flowFilterTimer);
-  flowFilterTimer = setTimeout(flowRender, 110);
-});
+const CHECK_LINKS = [
+  { id: 'fp-check-1', url: 'https://browserleaks.com/javascript' },
+  { id: 'fp-check-2', url: 'https://abrahamjuliot.github.io/creepjs/' },
+  { id: 'fp-check-3', url: 'https://iphey.com/' }
+];
 
-$('#net-scope').addEventListener('change', (e) => {
-  flow.scope = e.target.value === 'all' ? 'all' : 'tab';
-  flowBack();
-  flowLoad();
-});
-
-$('#net-save').addEventListener('click', flowSave);
-$('#net-clear').addEventListener('click', flowClear);
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !$('#ix-drawer').classList.contains('hidden')) devClose();
-});
-
-/* ------------------------------------------------------------- settings UI */
-
+function renderSection(section) {
+  const body = $('#settings-body');
+  const S = state.settings || {};
