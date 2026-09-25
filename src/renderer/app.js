@@ -1,26 +1,34 @@
 
-      <div class="card">
-        <h3>${esc(t('general.privacyTitle'))}</h3>
-        <p class="hint">${esc(t('general.privacyHint'))}</p>
-        <div class="row">
-          <div><label>${esc(t('general.p1'))}</label><div class="sub">${esc(t('general.p1sub'))}</div></div>
-          <span class="badge">${esc(t('general.on'))}</span>
-        </div>
-        <div class="row">
-          <div><label>${esc(t('general.p2'))}</label><div class="sub">${esc(t('general.p2sub'))}</div></div>
-          <span class="badge">${esc(t('general.on'))}</span>
-        </div>
-        <div class="row">
-          <div><label>${esc(t('general.p3'))}</label><div class="sub">${esc(t('general.p3sub'))}</div></div>
-          <span class="badge">${esc(t('general.on'))}</span>
-        </div>
-      </div>
+    const search = $('#set-search');
+    search.value = S.searchEngine || 'duckduckgo';
+    search.addEventListener('change', async () => {
+      await window.api.settings.set({ searchEngine: search.value });
+      state.settings.searchEngine = search.value;
+      toast(t('toast.saved'), 'ok');
+    });
 
-      <div class="card">
-        <h3>${esc(t('general.shortcuts'))}</h3>
-        <div class="kv"><span class="k">${esc(t('sc.newTab'))}</span><span class="v">Ctrl + T</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.closeTab'))}</span><span class="v">Ctrl + W</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.address'))}</span><span class="v">Ctrl + L</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.reload'))}</span><span class="v">Ctrl + R</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.settings'))}</span><span class="v">Ctrl + D</span></div>
-      </div>`;
+    const lang = $('#set-language');
+    lang.value = S.language || 'en';
+    lang.addEventListener('change', async () => {
+      await setLanguage(lang.value);
+    });
+
+    $$('[data-theme-set]').forEach((b) => b.addEventListener('click', async () => {
+      await setTheme(b.dataset.themeSet);
+      renderSection('general');
+    }));
+    return;
+  }
+
+  if (section === 'devices') {
+    const current = activeTab();
+    const curDev = (current && current.fp && current.fp.device) || state.desktop;
+    const groups = state.deviceGroups || {};
+    const order = ['desktop', 'apple', 'samsung', 'google', 'other'];
+    let listHtml = '';
+    for (const key of order) {
+      const arr = groups[key];
+      if (!arr || !arr.length) continue;
+      listHtml += `<div class="device-group-title">${esc(t('devices.group.' + key))}</div>`;
+      listHtml += arr.map((d) => deviceItemHtml(d, curDev.id)).join('');
+    }
