@@ -1,34 +1,33 @@
 
-    const search = $('#set-search');
-    search.value = S.searchEngine || 'duckduckgo';
-    search.addEventListener('change', async () => {
-      await window.api.settings.set({ searchEngine: search.value });
-      state.settings.searchEngine = search.value;
+    body.innerHTML = `
+      <div class="card">
+        <h3>${esc(t('devices.title'))}</h3>
+        <p class="hint">${esc(t('devices.hint'))}</p>
+        <div class="field">
+          <label>${esc(t('devices.default'))}</label>
+          <select id="set-default-device">
+            ${[state.desktop, ...state.devices].map((d) => `
+              <option value="${esc(d.id)}">${esc(d.mobile ? d.name : t('devices.desktop'))}</option>`).join('')}
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn ${curDev.mobile ? '' : 'hidden'}" id="dev-rotate">
+            <svg viewBox="0 0 24 24"><rect x="4" y="7" width="12" height="10" rx="2"/><path d="M19 10v4"/></svg>
+            ${esc(t('devices.rotate'))}
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>${esc(t('devices.active'))} <span class="muted small">· ${esc(curDev.mobile ? curDev.name : t('devices.desktop'))}</span></h3>
+        <p class="hint">${esc(t('devices.reload'))}</p>
+        <div id="dev-list">${listHtml}</div>
+      </div>`;
+
+    const sel = $('#set-default-device');
+    sel.value = S.defaultDevice || 'desktop';
+    sel.addEventListener('change', async () => {
+      await window.api.settings.set({ defaultDevice: sel.value });
+      state.settings.defaultDevice = sel.value;
       toast(t('toast.saved'), 'ok');
     });
-
-    const lang = $('#set-language');
-    lang.value = S.language || 'en';
-    lang.addEventListener('change', async () => {
-      await setLanguage(lang.value);
-    });
-
-    $$('[data-theme-set]').forEach((b) => b.addEventListener('click', async () => {
-      await setTheme(b.dataset.themeSet);
-      renderSection('general');
-    }));
-    return;
-  }
-
-  if (section === 'devices') {
-    const current = activeTab();
-    const curDev = (current && current.fp && current.fp.device) || state.desktop;
-    const groups = state.deviceGroups || {};
-    const order = ['desktop', 'apple', 'samsung', 'google', 'other'];
-    let listHtml = '';
-    for (const key of order) {
-      const arr = groups[key];
-      if (!arr || !arr.length) continue;
-      listHtml += `<div class="device-group-title">${esc(t('devices.group.' + key))}</div>`;
-      listHtml += arr.map((d) => deviceItemHtml(d, curDev.id)).join('');
-    }
