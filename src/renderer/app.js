@@ -1,36 +1,36 @@
-function openSettings(section) {
-  if (section) state.section = section;
-  $('#settings-overlay').classList.remove('hidden');
-  $$('.snav').forEach((b) => b.classList.toggle('active', b.dataset.section === state.section));
-  renderSection(state.section);
-}
 
-function closeSettings() {
-  $('#settings-overlay').classList.add('hidden');
-}
+  if (section === 'general') {
+    body.innerHTML = `
+      <div class="card">
+        <h3>${esc(t('general.searchTitle'))}</h3>
+        <p class="hint">${esc(t('general.searchHint'))}</p>
+        <div class="field">
+          <select id="set-search">
+            <option value="duckduckgo">DuckDuckGo</option>
+            <option value="brave">Brave Search</option>
+            <option value="google">Google</option>
+            <option value="bing">Bing</option>
+            <option value="startpage">Startpage</option>
+          </select>
+        </div>
+      </div>
 
-$('#btn-menu').addEventListener('click', () => openSettings());
-$('#settings-close').addEventListener('click', closeSettings);
-$('#settings-overlay').addEventListener('click', (e) => {
-  if (e.target.id === 'settings-overlay') closeSettings();
-});
-$$('.snav').forEach((b) => {
-  b.addEventListener('click', () => {
-    state.section = b.dataset.section;
-    $$('.snav').forEach((x) => x.classList.toggle('active', x === b));
-    renderSection(state.section);
-  });
-});
+      <div class="card">
+        <h3>${esc(t('general.languageTitle'))}</h3>
+        <p class="hint">${esc(t('general.languageHint'))}</p>
+        <div class="field">
+          <select id="set-language">
+            <option value="en">English</option>
+            <option value="ar">العربية</option>
+          </select>
+        </div>
+      </div>
 
-$('#chip-fp').addEventListener('click', () => openSettings('fingerprint'));
-$('#chip-proxy').addEventListener('click', () => openSettings('proxy'));
-
-const CHECK_LINKS = [
-  { id: 'fp-check-1', url: 'https://browserleaks.com/javascript' },
-  { id: 'fp-check-2', url: 'https://abrahamjuliot.github.io/creepjs/' },
-  { id: 'fp-check-3', url: 'https://iphey.com/' }
-];
-
-function renderSection(section) {
-  const body = $('#settings-body');
-  const S = state.settings || {};
+      <div class="card">
+        <h3>${esc(t('general.themeTitle'))}</h3>
+        <p class="hint">${esc(t('general.themeHint'))}</p>
+        <div class="btn-row">
+          <button class="btn ${S.theme !== 'dark' ? 'primary' : ''}" data-theme-set="light">${esc(t('theme.light'))}</button>
+          <button class="btn ${S.theme === 'dark' ? 'primary' : ''}" data-theme-set="dark">${esc(t('theme.dark'))}</button>
+        </div>
+      </div>
