@@ -1,36 +1,26 @@
 
-  if (section === 'general') {
-    body.innerHTML = `
       <div class="card">
-        <h3>${esc(t('general.searchTitle'))}</h3>
-        <p class="hint">${esc(t('general.searchHint'))}</p>
-        <div class="field">
-          <select id="set-search">
-            <option value="duckduckgo">DuckDuckGo</option>
-            <option value="brave">Brave Search</option>
-            <option value="google">Google</option>
-            <option value="bing">Bing</option>
-            <option value="startpage">Startpage</option>
-          </select>
+        <h3>${esc(t('general.privacyTitle'))}</h3>
+        <p class="hint">${esc(t('general.privacyHint'))}</p>
+        <div class="row">
+          <div><label>${esc(t('general.p1'))}</label><div class="sub">${esc(t('general.p1sub'))}</div></div>
+          <span class="badge">${esc(t('general.on'))}</span>
+        </div>
+        <div class="row">
+          <div><label>${esc(t('general.p2'))}</label><div class="sub">${esc(t('general.p2sub'))}</div></div>
+          <span class="badge">${esc(t('general.on'))}</span>
+        </div>
+        <div class="row">
+          <div><label>${esc(t('general.p3'))}</label><div class="sub">${esc(t('general.p3sub'))}</div></div>
+          <span class="badge">${esc(t('general.on'))}</span>
         </div>
       </div>
 
       <div class="card">
-        <h3>${esc(t('general.languageTitle'))}</h3>
-        <p class="hint">${esc(t('general.languageHint'))}</p>
-        <div class="field">
-          <select id="set-language">
-            <option value="en">English</option>
-            <option value="ar">العربية</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>${esc(t('general.themeTitle'))}</h3>
-        <p class="hint">${esc(t('general.themeHint'))}</p>
-        <div class="btn-row">
-          <button class="btn ${S.theme !== 'dark' ? 'primary' : ''}" data-theme-set="light">${esc(t('theme.light'))}</button>
-          <button class="btn ${S.theme === 'dark' ? 'primary' : ''}" data-theme-set="dark">${esc(t('theme.dark'))}</button>
-        </div>
-      </div>
+        <h3>${esc(t('general.shortcuts'))}</h3>
+        <div class="kv"><span class="k">${esc(t('sc.newTab'))}</span><span class="v">Ctrl + T</span></div>
+        <div class="kv"><span class="k">${esc(t('sc.closeTab'))}</span><span class="v">Ctrl + W</span></div>
+        <div class="kv"><span class="k">${esc(t('sc.address'))}</span><span class="v">Ctrl + L</span></div>
+        <div class="kv"><span class="k">${esc(t('sc.reload'))}</span><span class="v">Ctrl + R</span></div>
+        <div class="kv"><span class="k">${esc(t('sc.settings'))}</span><span class="v">Ctrl + D</span></div>
+      </div>`;
