@@ -1,32 +1,36 @@
 
-        <div class="row">
-          <div><label>${esc(t('proxy.burp'))}</label><div class="sub">${esc(t('proxy.burpHint'))}</div></div>
-          <button class="btn sm" id="px-burp">${esc(t('proxy.burpApply'))}</button>
-        </div>
+    $('#px-apply').addEventListener('click', async () => {
+      const patch = {
+        enabled: $('#px-enabled').classList.contains('on'),
+        mode: $('#px-mode').value,
+        pool: $('#px-pool').value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+        bypass: $('#px-bypass').value.trim() || '<local>'
+      };
+      const res = await window.api.proxy.set(patch);
+      if (!res.ok) return toast(res.error, 'err');
+      state.settings.proxy = res.config;
+      updateChips();
+      renderProxyStatus();
+      toast(t('toast.applied', { n: res.applied }), 'ok');
+    });
 
-        <div class="row">
-          <div><label>${esc(t('proxy.trust'))}</label><div class="sub">${esc(t('proxy.trustHint'))}</div></div>
-          <div class="switch ${p.trustBurpCert ? 'on' : ''}" id="px-trust"></div>
-        </div>
+    $('#px-test').addEventListener('click', async () => {
+      const out = $('#px-result');
+      const lines = $('#px-pool').value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      const entry = lines[0];
+      if (!entry) return toast(t('toast.needProxy'), 'err');
+      out.innerHTML = `<span class="badge warn">${esc(t('proxy.testing'))}</span>`;
+      const res = await window.api.proxy.test(entry);
+      if (!res.ok) { out.innerHTML = `<span class="badge err">${esc(t('proxy.error'))}</span> ${esc(res.error)}`; return; }
+      const r = res.result;
+      out.innerHTML = r.ok
+        ? `<span class="badge">${esc(t('proxy.connected'))}</span> <span class="mono">IP: ${esc(r.ip || 'n/a')}</span> · ${r.ms} ms`
+        : `<span class="badge err">${esc(t('proxy.failed'))}</span> ${esc(r.error || '')} · ${r.ms} ms`;
+    });
 
-        <div class="row">
-          <div><label>${esc(t('proxy.intercept'))}</label><div class="sub">${esc(t('proxy.interceptHint'))}</div></div>
-          <button class="btn sm" id="px-intercept">${esc(t('proxy.openIntercept'))}</button>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn primary" id="px-apply">${esc(t('proxy.apply'))}</button>
-          <button class="btn" id="px-test">${esc(t('proxy.test'))}</button>
-        </div>
-
-        <div id="px-result" style="margin-top:12px"></div>
-      </div>
-
-      <div class="card">
-        <h3>${esc(t('proxy.statusTitle'))}</h3>
-        <div id="px-status"></div>
-      </div>`;
-
-    $('#px-mode').value = p.mode || 'single';
-    $('#px-enabled').classList.toggle('on', !!p.enabled);
-    $('#px-enabled').addEventListener('click', (e) => e.currentTarget.classList.toggle('on'));
+    $('#px-trust').addEventListener('click', async (e) => {
+      const on = e.currentTarget.classList.toggle('on');
+      const res = await window.api.proxy.set({ trustBurpCert: on });
+      if (res.ok) { state.settings.proxy = res.config; toast(t('toast.saved'), 'ok'); }
+      else toast(res.error, 'err');
+    });
