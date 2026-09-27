@@ -1,31 +1,34 @@
 
-    $('#px-burp').addEventListener('click', async () => {
-      const res = await window.api.proxy.set({
-        enabled: true,
-        mode: 'single',
-        pool: ['http://127.0.0.1:8080'],
-        bypass: '<local>',
-        trustBurpCert: true
-      });
-      if (!res.ok) return toast(res.error, 'err');
-      state.settings.proxy = res.config;
-      updateChips();
-      renderSection('proxy');
-      toast(t('toast.applied', { n: res.applied }), 'ok');
-    });
+        <div class="field">
+          <label>${esc(t('wp.source'))}</label>
+          <select id="wp-source">
+            <option value="unsplash">${esc(t('wp.unsplash'))}</option>
+            <option value="custom">${esc(t('wp.custom'))}</option>
+            <option value="none">${esc(t('wp.none'))}</option>
+          </select>
+        </div>
 
-    $('#px-intercept').addEventListener('click', () => {
-      closeSettings();
-      ixOpenDrawer();
-    });
+        <div class="field">
+          <label>${esc(t('wp.customUrl'))}</label>
+          <input type="text" id="wp-custom" dir="ltr" value="${esc(w.custom || '')}" placeholder="https://…" />
+        </div>
 
-    renderProxyStatus();
-    return;
-  }
+        <div class="field">
+          <label>${esc(t('wp.blur'))}: <span id="wp-blur-val">${w.blur || 0}</span>px</label>
+          <input type="range" id="wp-blur" min="0" max="24" value="${w.blur || 0}" />
+        </div>
 
-  if (section === 'wallpapers') {
-    const w = S.wallpapers || {};
-    body.innerHTML = `
-      <div class="card">
-        <h3>${esc(t('wp.title'))}</h3>
-        <p class="hint">${esc(t('wp.hint'))}</p>
+        <div class="field">
+          <label>${esc(t('wp.dim'))}: <span id="wp-dim-val">${Math.round((w.dim || 0) * 100)}</span>%</label>
+          <input type="range" id="wp-dim" min="0" max="85" value="${Math.round((w.dim || 0) * 100)}" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="wp-save">${esc(t('wp.save'))}</button>
+          <button class="btn" id="wp-refresh">${esc(t('wp.refresh'))}</button>
+        </div>
+      </div>`;
+
+    $('#wp-source').value = w.source || 'unsplash';
+    $('#wp-blur').addEventListener('input', (e) => { $('#wp-blur-val').textContent = e.target.value; });
+    $('#wp-dim').addEventListener('input', (e) => { $('#wp-dim-val').textContent = e.target.value; });
