@@ -1,34 +1,32 @@
 
-    refreshFingerprintList();
-    return;
-  }
-
-  if (section === 'proxy') {
-    const p = S.proxy || {};
-    body.innerHTML = `
-      <div class="card">
-        <h3>${esc(t('proxy.title'))}</h3>
-        <p class="hint">${esc(t('proxy.hint'))}</p>
+        <div class="row">
+          <div><label>${esc(t('proxy.burp'))}</label><div class="sub">${esc(t('proxy.burpHint'))}</div></div>
+          <button class="btn sm" id="px-burp">${esc(t('proxy.burpApply'))}</button>
+        </div>
 
         <div class="row">
-          <div><label>${esc(t('proxy.enable'))}</label><div class="sub">${esc(t('proxy.enableSub'))}</div></div>
-          <div class="switch ${p.enabled ? 'on' : ''}" id="px-enabled"></div>
+          <div><label>${esc(t('proxy.trust'))}</label><div class="sub">${esc(t('proxy.trustHint'))}</div></div>
+          <div class="switch ${p.trustBurpCert ? 'on' : ''}" id="px-trust"></div>
         </div>
 
-        <div class="field" style="margin-top:12px">
-          <label>${esc(t('proxy.mode'))}</label>
-          <select id="px-mode">
-            <option value="single">${esc(t('proxy.modeSingle'))}</option>
-            <option value="rotate">${esc(t('proxy.modeRotate'))}</option>
-          </select>
+        <div class="row">
+          <div><label>${esc(t('proxy.intercept'))}</label><div class="sub">${esc(t('proxy.interceptHint'))}</div></div>
+          <button class="btn sm" id="px-intercept">${esc(t('proxy.openIntercept'))}</button>
         </div>
 
-        <div class="field">
-          <label>${esc(t('proxy.pool'))}</label>
-          <textarea id="px-pool" spellcheck="false" placeholder="http://user:pass@host:port">${esc((p.pool || []).join('\n'))}</textarea>
+        <div class="btn-row">
+          <button class="btn primary" id="px-apply">${esc(t('proxy.apply'))}</button>
+          <button class="btn" id="px-test">${esc(t('proxy.test'))}</button>
         </div>
 
-        <div class="field">
-          <label>${esc(t('proxy.bypass'))}</label>
-          <input type="text" id="px-bypass" dir="ltr" value="${esc(p.bypass || '<local>')}" />
-        </div>
+        <div id="px-result" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h3>${esc(t('proxy.statusTitle'))}</h3>
+        <div id="px-status"></div>
+      </div>`;
+
+    $('#px-mode').value = p.mode || 'single';
+    $('#px-enabled').classList.toggle('on', !!p.enabled);
+    $('#px-enabled').addEventListener('click', (e) => e.currentTarget.classList.toggle('on'));
