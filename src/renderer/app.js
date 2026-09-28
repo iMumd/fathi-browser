@@ -1,33 +1,40 @@
-async function renderExtensionList() {
-  const box = $('#ext-list');
+function renderFingerprintList() {
+  const box = $('#fp-list');
   if (!box) return;
-  const res = await window.api.ext.list();
-  const list = (res && res.list) || [];
-  if (!list.length) {
-    box.innerHTML = `<p class="hint" style="margin:0">${esc(t('ext.empty'))}</p>`;
+  if (!state.tabs.length) {
+    box.innerHTML = `<p class="hint" style="margin:0">n/a</p>`;
     return;
   }
-  box.innerHTML = list.map((e) => `
-    <div class="ext-item">
-      <div class="ext-icon">${esc(String(e.name || '?').slice(0, 1).toUpperCase())}</div>
-      <div class="ext-meta">
-        <div class="ext-name">${esc(e.name)}</div>
-        <div class="ext-sub">v${esc(e.version)} · ${esc(t('ext.sessions', { n: e.runningIn || 0 }))} · ${esc(e.source === 'unpacked' ? t('ext.folder') : t('ext.store'))}</div>
-      </div>
-      <button class="btn sm danger" data-ext-remove="${esc(e.id)}">${esc(t('ext.remove'))}</button>
-    </div>`).join('');
+  box.innerHTML = state.tabs.map((tab, i) => {
+    const f = tab.fp || {};
+    const mobile = !!(f.device && f.device.mobile);
+    return `
+      <div class="fp-row">
+        <div class="fp-ua" title="${esc(f.ua || '')}">${mobile ? esc(f.device.name) + ' · ' : ''}${esc(shortUa(f.ua))}</div>
+        <button class="btn sm" data-rotate="${esc(tab.id)}">${esc(t('fp.rotate'))}</button>
+        <div class="fp-tags">
+          <span class="tag">${esc(t('fp.tagTab', { n: i + 1 }))}</span>
+          <span class="tag">${esc(osLabel(f))}</span>
+          <span class="tag">${esc(f.timezone || '')}</span>
+          <span class="tag">${esc(f.language || '')}</span>
+          <span class="tag">${mobile ? `${f.device.width}×${f.device.height}` : (f.screen ? `${f.screen.width}×${f.screen.height}` : '')}</span>
+          <span class="tag">${esc(t('fp.tagCores', { n: f.hardwareConcurrency || '?' }))}</span>
+          <span class="tag">${esc(String((f.webgl && f.webgl.vendor) || '').replace('Google Inc. ', ''))}</span>
+        </div>
+      </div>`;
+  }).join('');
 
-  box.querySelectorAll('[data-ext-remove]').forEach((b) => {
-    b.addEventListener('click', async () => {
-      const res2 = await window.api.ext.remove(b.dataset.extRemove);
-      if (res2 && res2.ok) { toast(t('toast.extRemoved'), 'ok'); renderExtensionList(); }
-    });
+  box.querySelectorAll('[data-rotate]').forEach((b) => {
+    b.addEventListener('click', async () => { await rotateTab(b.dataset.rotate); });
   });
 }
 
-let fpListTimer = null;
-function refreshFingerprintList() {
-  clearTimeout(fpListTimer);
-  fpListTimer = setTimeout(renderFingerprintList, 30);
+function highlightActiveTabInSettings() {
+  if (!$('#dev-list')) return;
+  const tab = activeTab();
+  const activeId = (tab && tab.fp && tab.fp.device && tab.fp.device.id) || 'desktop';
+  $$('#dev-list [data-device]').forEach((el) => {
+    el.classList.toggle('active', el.dataset.device === activeId);
+  });
 }
 
