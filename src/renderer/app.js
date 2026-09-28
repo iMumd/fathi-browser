@@ -1,26 +1,33 @@
+async function renderExtensionList() {
+  const box = $('#ext-list');
+  if (!box) return;
+  const res = await window.api.ext.list();
+  const list = (res && res.list) || [];
+  if (!list.length) {
+    box.innerHTML = `<p class="hint" style="margin:0">${esc(t('ext.empty'))}</p>`;
+    return;
+  }
+  box.innerHTML = list.map((e) => `
+    <div class="ext-item">
+      <div class="ext-icon">${esc(String(e.name || '?').slice(0, 1).toUpperCase())}</div>
+      <div class="ext-meta">
+        <div class="ext-name">${esc(e.name)}</div>
+        <div class="ext-sub">v${esc(e.version)} · ${esc(t('ext.sessions', { n: e.runningIn || 0 }))} · ${esc(e.source === 'unpacked' ? t('ext.folder') : t('ext.store'))}</div>
+      </div>
+      <button class="btn sm danger" data-ext-remove="${esc(e.id)}">${esc(t('ext.remove'))}</button>
+    </div>`).join('');
 
-    <div class="card">
-      <h3>${esc(t('about.openSource'))}</h3>
-      <p class="hint" style="margin:0">${esc(t('about.openSourceText'))}</p>
-    </div>`;
-
-  $('#about-telegram').addEventListener('click', () => {
-    window.api.openExternal('https://t.me/aweing');
+  box.querySelectorAll('[data-ext-remove]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const res2 = await window.api.ext.remove(b.dataset.extRemove);
+      if (res2 && res2.ok) { toast(t('toast.extRemoved'), 'ok'); renderExtensionList(); }
+    });
   });
 }
 
-async function renderProxyStatus() {
-  const box = $('#px-status');
-  if (!box) return;
-  const tab = activeTab();
-  if (!tab) { box.innerHTML = `<span class="muted">${esc(t('proxy.noTab'))}</span>`; return; }
-  const res = await window.api.tab.proxyStatus(tab.partition);
-  const p = (res && res.proxy) || {};
-  box.innerHTML = `
-    <div class="kv"><span class="k">${esc(t('proxy.state'))}</span><span class="v">${p.enabled ? esc(t('proxy.online')) : esc(t('proxy.direct'))}</span></div>
-    <div class="kv"><span class="k">${esc(t('proxy.host'))}</span><span class="v mono">${esc(p.host || 'n/a')}</span></div>
-    <div class="kv"><span class="k">${esc(t('proxy.modeLabel'))}</span><span class="v">${p.mode === 'rotate' ? esc(t('proxy.rotateMode')) : esc(t('proxy.single'))}</span></div>
-    <div class="kv"><span class="k">${esc(t('proxy.count'))}</span><span class="v">${p.count || 0}</span></div>
-    <div class="kv"><span class="k">${esc(t('proxy.partition'))}</span><span class="v mono">${esc(tab.partition)}</span></div>`;
+let fpListTimer = null;
+function refreshFingerprintList() {
+  clearTimeout(fpListTimer);
+  fpListTimer = setTimeout(renderFingerprintList, 30);
 }
 
