@@ -1,37 +1,28 @@
 
-    $('#wp-save').addEventListener('click', async () => {
-      const patch = {
-        wallpapers: {
-          source: $('#wp-source').value,
-          custom: $('#wp-custom').value.trim(),
-          blur: Number($('#wp-blur').value) || 0,
-          dim: (Number($('#wp-dim').value) || 0) / 100
-        }
-      };
-      await window.api.settings.set(patch);
-      state.settings = (await window.api.settings.get()).settings;
-      reloadNewTabs();
-      toast(t('toast.wpSaved'), 'ok');
+      <div class="card">
+        <h3>${esc(t('ext.listTitle'))}</h3>
+        <div id="ext-list"></div>
+      </div>`;
+
+    $('#ext-install').addEventListener('click', async () => {
+      const input = $('#ext-input').value.trim();
+      if (!input) return toast(t('toast.needExt'), 'err');
+      const btn = $('#ext-install');
+      btn.disabled = true; btn.textContent = t('ext.installing');
+      const res = await window.api.ext.install(input);
+      btn.disabled = false; btn.textContent = t('ext.install');
+      if (!res.ok) return toast(res.error, 'err');
+      toast(t('toast.extInstalled', { name: res.record.name }), 'ok');
+      renderExtensionList();
     });
 
-    $('#wp-refresh').addEventListener('click', () => {
-      reloadNewTabs();
-      toast(t('toast.wpRefreshed'), 'ok');
+    $('#ext-unpacked').addEventListener('click', async () => {
+      const res = await window.api.ext.installUnpacked();
+      if (!res || !res.ok || !res.record) return;
+      toast(t('toast.extInstalled', { name: res.record.name }), 'ok');
+      renderExtensionList();
     });
+
+    renderExtensionList();
     return;
   }
-
-  if (section === 'extensions') {
-    body.innerHTML = `
-      <div class="card">
-        <h3>${esc(t('ext.title'))}</h3>
-        <p class="hint">${esc(t('ext.hint'))}</p>
-        <div class="field">
-          <label>${esc(t('ext.input'))}</label>
-          <input type="text" id="ext-input" dir="ltr" placeholder="https://chromewebstore.google.com/detail/…" />
-        </div>
-        <div class="btn-row">
-          <button class="btn primary" id="ext-install">${esc(t('ext.install'))}</button>
-          <button class="btn" id="ext-unpacked">${esc(t('ext.unpacked'))}</button>
-        </div>
-      </div>
