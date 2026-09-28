@@ -1,34 +1,37 @@
 
-        <div class="field">
-          <label>${esc(t('wp.source'))}</label>
-          <select id="wp-source">
-            <option value="unsplash">${esc(t('wp.unsplash'))}</option>
-            <option value="custom">${esc(t('wp.custom'))}</option>
-            <option value="none">${esc(t('wp.none'))}</option>
-          </select>
-        </div>
+    $('#wp-save').addEventListener('click', async () => {
+      const patch = {
+        wallpapers: {
+          source: $('#wp-source').value,
+          custom: $('#wp-custom').value.trim(),
+          blur: Number($('#wp-blur').value) || 0,
+          dim: (Number($('#wp-dim').value) || 0) / 100
+        }
+      };
+      await window.api.settings.set(patch);
+      state.settings = (await window.api.settings.get()).settings;
+      reloadNewTabs();
+      toast(t('toast.wpSaved'), 'ok');
+    });
 
-        <div class="field">
-          <label>${esc(t('wp.customUrl'))}</label>
-          <input type="text" id="wp-custom" dir="ltr" value="${esc(w.custom || '')}" placeholder="https://…" />
-        </div>
+    $('#wp-refresh').addEventListener('click', () => {
+      reloadNewTabs();
+      toast(t('toast.wpRefreshed'), 'ok');
+    });
+    return;
+  }
 
+  if (section === 'extensions') {
+    body.innerHTML = `
+      <div class="card">
+        <h3>${esc(t('ext.title'))}</h3>
+        <p class="hint">${esc(t('ext.hint'))}</p>
         <div class="field">
-          <label>${esc(t('wp.blur'))}: <span id="wp-blur-val">${w.blur || 0}</span>px</label>
-          <input type="range" id="wp-blur" min="0" max="24" value="${w.blur || 0}" />
+          <label>${esc(t('ext.input'))}</label>
+          <input type="text" id="ext-input" dir="ltr" placeholder="https://chromewebstore.google.com/detail/…" />
         </div>
-
-        <div class="field">
-          <label>${esc(t('wp.dim'))}: <span id="wp-dim-val">${Math.round((w.dim || 0) * 100)}</span>%</label>
-          <input type="range" id="wp-dim" min="0" max="85" value="${Math.round((w.dim || 0) * 100)}" />
-        </div>
-
         <div class="btn-row">
-          <button class="btn primary" id="wp-save">${esc(t('wp.save'))}</button>
-          <button class="btn" id="wp-refresh">${esc(t('wp.refresh'))}</button>
+          <button class="btn primary" id="ext-install">${esc(t('ext.install'))}</button>
+          <button class="btn" id="ext-unpacked">${esc(t('ext.unpacked'))}</button>
         </div>
-      </div>`;
-
-    $('#wp-source').value = w.source || 'unsplash';
-    $('#wp-blur').addEventListener('input', (e) => { $('#wp-blur-val').textContent = e.target.value; });
-    $('#wp-dim').addEventListener('input', (e) => { $('#wp-dim-val').textContent = e.target.value; });
+      </div>
