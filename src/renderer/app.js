@@ -1,32 +1,36 @@
-function reloadNewTabs() {
+async function setLanguage(lang) {
+  await window.api.settings.set({ language: lang });
+  state.settings.language = lang;
+  window.i18n.setLang(lang, { silent: true });
+  applyStatic();
   for (const tab of state.tabs) {
     if (tab.url && tab.url.startsWith('fathi://')) {
-      try {
-        const target = newTabUrl();
-        tab.url = target;
-        tab.wv.loadURL(target);
-      } catch {}
+      tab.title = t('tab.new');
+      const titleEl = tab.el.querySelector('.tab-title');
+      if (titleEl) titleEl.textContent = tab.title;
     }
+    tab.el.title = t('tab.fp');
+    const closeBtn = tab.el.querySelector('.tab-close');
+    if (closeBtn) { closeBtn.title = t('tab.close'); closeBtn.setAttribute('aria-label', t('tab.close')); }
   }
+  updateChips();
+  updateSecurityIcon();
+  updateOmnibox();
+  updateNavButtons();
+  if (!$('#settings-overlay').classList.contains('hidden')) renderSection(state.section);
+  reloadNewTabs();
+  toast(t('toast.languageChanged'), 'ok');
 }
 
-/* ------------------------------------------------------- language + theme */
-
-function applyTheme() {
-  const theme = (state.settings && state.settings.theme) || 'light';
-  document.documentElement.dataset.theme = theme;
+async function setTheme(theme) {
+  await window.api.settings.set({ theme });
+  state.settings.theme = theme;
+  applyTheme();
+  reloadNewTabs();
+  toast(t('toast.themeChanged'), 'ok');
 }
 
-function applyStatic() {
-  window.i18n.apply();
-  const brand = $('#brand');
-  if (brand) brand.title = 'Fathi';
-  const winMax = $('#win-max');
-  if (winMax) winMax.title = t('win.maximize');
-  const winMin = $('#win-min');
-  if (winMin) winMin.title = t('win.minimize');
-  const winClose = $('#win-close');
-  if (winClose) winClose.title = t('win.close');
-  ixUpdateChrome();
-}
+/* ---------------------------------------------------------------- events */
 
+window.api.on('fathi:window:open', ({ url }) => {
+  if (url) createTab({ url });
