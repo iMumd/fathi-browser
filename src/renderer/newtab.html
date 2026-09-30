@@ -1,97 +1,90 @@
 
-    /* ---------- promo banners ---------- */
-    #promos {
-      width: min(620px, 92vw);
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-    .promo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 46px;
-      padding: 8px 11px;
-      background: var(--nt-card);
-      border: 1px solid var(--nt-border);
-      border-radius: 3px;
-      color: var(--nt-text);
-      text-decoration: none;
-      text-align: start;
-      transition: border-color .12s, background .12s;
-    }
-    .promo:hover { border-color: var(--nt-accent); }
-    .promo .pico {
-      flex: 0 0 auto;
-      width: 28px; height: 28px;
-      border-radius: 2px;
-      display: grid; place-items: center;
-      background: var(--nt-field);
-      color: var(--nt-accent);
-    }
-    .promo .pico svg { width: 15px; height: 15px; }
-    .promo .ptext { flex: 1 1 auto; min-width: 0; }
-    .promo .ptitle {
-      font-size: 11.5px;
-      font-weight: 600;
-      letter-spacing: .2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .promo .psub {
-      margin-top: 2px;
-      font-size: 10.5px;
-      color: var(--nt-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .promo .pgo {
-      flex: 0 0 auto;
-      height: 26px;
-      padding: 0 9px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      border: 1px solid var(--nt-border);
-      border-radius: 2px;
-      background: var(--nt-field);
-      color: var(--nt-accent);
-      font-size: 9.5px;
-      font-weight: 650;
-      letter-spacing: .6px;
+    #fp-card .fp-head {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10px; font-weight: 600; letter-spacing: .8px;
+      color: var(--nt-muted); margin-bottom: 8px;
       text-transform: uppercase;
     }
-    .promo:hover .pgo { border-color: var(--nt-accent); }
-    .promo .pgo svg {
-      width: 10px; height: 10px;
-      fill: none; stroke: currentColor; stroke-width: 2;
-      stroke-linecap: round; stroke-linejoin: round;
+    #fp-card .fp-head .led {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: #2C9C76;
     }
-    html[dir="rtl"] .promo .pgo svg { transform: scaleX(-1); }
+    #fp-card .fp-device {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-bottom: 7px;
+      font-size: 10.5px; font-weight: 600;
+      color: var(--nt-accent);
+    }
+    #fp-card .fp-ua {
+      font-size: 10.5px;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      color: var(--nt-muted);
+      direction: ltr; text-align: left;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 8px;
+    }
+    html[dir="rtl"] #fp-card .fp-ua { text-align: right; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tags span {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 2px;
+      background: var(--nt-field);
+      color: var(--nt-muted);
+    }
+    .tags span b { color: var(--nt-text); font-weight: 600; }
 
-    @media (max-height: 700px) {
-      .promo .psub { display: none; }
-      .promo { min-height: 40px; padding: 6px 10px; }
-    }
-
-    /* ---------- bottom cards ---------- */
-    #bottom {
-      position: fixed;
-      left: 18px; right: 18px; bottom: 16px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 12px;
-      pointer-events: none;
-    }
-    .glass {
-      pointer-events: auto;
-      background: var(--nt-card);
+    #fp-card .fp-actions { display: flex; gap: 6px; margin-top: 9px; }
+    .mini {
+      height: 27px; padding: 0 10px;
+      border-radius: 2px;
       border: 1px solid var(--nt-border);
-      border-radius: 4px;
-      padding: 11px 13px;
+      background: var(--nt-field);
       color: var(--nt-text);
-      max-width: min(520px, 64vw);
+      font-size: 10.5px; font-weight: 550;
+      cursor: pointer; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: border-color .12s, color .12s;
     }
+    .mini:hover { border-color: var(--nt-accent); color: var(--nt-accent); }
+    .mini svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+
+    #right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+    #proxy-card {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10.5px;
+      padding: 8px 12px;
+      color: var(--nt-muted);
+    }
+    #proxy-card .led { width: 5px; height: 5px; border-radius: 50%; background: #2C9C76; }
+    #proxy-card.off .led { background: var(--nt-faint); }
+    #proxy-card .mono {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      direction: ltr; color: var(--nt-text);
+    }
+    #credit {
+      font-size: 10px;
+      color: rgba(255,255,255,.74);
+      text-shadow: 0 1px 6px rgba(0,0,0,.4);
+      pointer-events: auto;
+    }
+    #credit a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.35); }
+    #credit a:hover { border-bottom-color: #fff; }
+
+    @media (max-width: 700px) {
+      #bottom { flex-direction: column; align-items: stretch; }
+      .glass { max-width: none; }
+      #right-col { align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div id="bg-base"></div>
+  <div id="bg"></div>
+  <div id="dim"></div>
+
+  <div id="brand-mark">
+    <img src="fathi://asset/icon-64.png" alt="" />
+    <div class="name">Fathi</div>
+  </div>
