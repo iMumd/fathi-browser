@@ -1,83 +1,97 @@
 
-    #clock-wrap { text-align: center; user-select: none; }
-    #clock {
-      font-size: clamp(50px, 8.2vw, 100px);
-      font-weight: 200;
-      letter-spacing: 1px;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      text-shadow: 0 6px 36px rgba(0,0,0,.32);
-    }
-    #date {
-      margin-top: 10px;
-      font-size: 12.5px;
-      letter-spacing: .4px;
-      opacity: .9;
-      text-shadow: 0 2px 12px rgba(0,0,0,.45);
-    }
-    #greet {
-      margin-top: 14px;
-      font-size: 13px;
-      opacity: .94;
-      text-shadow: 0 2px 14px rgba(0,0,0,.5);
-    }
-
-    #search-form {
+    /* ---------- promo banners ---------- */
+    #promos {
       width: min(620px, 92vw);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .promo {
       display: flex;
       align-items: center;
       gap: 10px;
-      height: 52px;
-      padding: 0 7px 0 16px;
-      border-radius: 3px;
+      min-height: 46px;
+      padding: 8px 11px;
       background: var(--nt-card);
       border: 1px solid var(--nt-border);
-      transition: border-color .14s;
-    }
-    html[dir="rtl"] #search-form { padding: 0 16px 0 7px; }
-    #search-form:focus-within { border-color: var(--nt-accent); }
-    #search-form svg {
-      width: 17px; height: 17px; flex: 0 0 auto;
-      stroke: var(--nt-muted); fill: none; stroke-width: 1.9; stroke-linecap: round;
-    }
-    #q {
-      flex: 1; min-width: 0;
-      background: transparent; border: 0; outline: 0;
-      color: var(--nt-text); font-size: 14px; font-family: inherit;
-    }
-    #q::placeholder { color: var(--nt-faint); }
-    #search-form button[type="submit"] {
-      height: 38px; padding: 0 16px;
-      border: 0; border-radius: 2px;
-      background: var(--nt-accent); color: var(--nt-accent-text);
-      font-weight: 600; font-size: 12px; letter-spacing: .3px;
-      cursor: pointer; font-family: inherit;
-      transition: opacity .12s;
-    }
-    #search-form button[type="submit"]:hover { opacity: .88; }
-    #search-form button[type="submit"]:active { opacity: .78; }
-
-    #shortcuts {
-      display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
-      max-width: 720px;
-    }
-    .sc {
-      display: flex; align-items: center; gap: 8px;
-      height: 38px; padding: 0 13px;
       border-radius: 3px;
-      background: var(--nt-chip);
-      border: 1px solid var(--nt-chip-border);
-      color: #fff;
-      font-size: 11.5px; font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background .12s, border-color .12s;
-      text-shadow: 0 1px 6px rgba(0,0,0,.32);
+      color: var(--nt-text);
+      text-decoration: none;
+      text-align: start;
+      transition: border-color .12s, background .12s;
     }
-    .sc:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); }
-    .sc .dot {
-      width: 19px; height: 19px; border-radius: 2px;
+    .promo:hover { border-color: var(--nt-accent); }
+    .promo .pico {
+      flex: 0 0 auto;
+      width: 28px; height: 28px;
+      border-radius: 2px;
       display: grid; place-items: center;
-      font-size: 9px; font-weight: 700;
-      background: rgba(255,255,255,.18); color: #fff;
+      background: var(--nt-field);
+      color: var(--nt-accent);
+    }
+    .promo .pico svg { width: 15px; height: 15px; }
+    .promo .ptext { flex: 1 1 auto; min-width: 0; }
+    .promo .ptitle {
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .promo .psub {
+      margin-top: 2px;
+      font-size: 10.5px;
+      color: var(--nt-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .promo .pgo {
+      flex: 0 0 auto;
+      height: 26px;
+      padding: 0 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid var(--nt-border);
+      border-radius: 2px;
+      background: var(--nt-field);
+      color: var(--nt-accent);
+      font-size: 9.5px;
+      font-weight: 650;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+    }
+    .promo:hover .pgo { border-color: var(--nt-accent); }
+    .promo .pgo svg {
+      width: 10px; height: 10px;
+      fill: none; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    html[dir="rtl"] .promo .pgo svg { transform: scaleX(-1); }
+
+    @media (max-height: 700px) {
+      .promo .psub { display: none; }
+      .promo { min-height: 40px; padding: 6px 10px; }
+    }
+
+    /* ---------- bottom cards ---------- */
+    #bottom {
+      position: fixed;
+      left: 18px; right: 18px; bottom: 16px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .glass {
+      pointer-events: auto;
+      background: var(--nt-card);
+      border: 1px solid var(--nt-border);
+      border-radius: 4px;
+      padding: 11px 13px;
+      color: var(--nt-text);
+      max-width: min(520px, 64vw);
     }
