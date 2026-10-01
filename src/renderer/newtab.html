@@ -1,3 +1,541 @@
+﻿<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src https: fathi: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+  <title>New Tab</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --nt-card: #FFFFFF;
+      --nt-border: #E3E5E9;
+      --nt-text: #15171A;
+      --nt-muted: #676D76;
+      --nt-faint: #9AA0A8;
+      --nt-field: #F2F3F6;
+      --nt-accent: #4E7FA8;
+      --nt-accent-text: #FFFFFF;
+      --nt-chip: rgba(12, 14, 17, .34);
+      --nt-chip-border: rgba(255, 255, 255, .22);
+    }
+
+    html[data-theme="dark"] {
+      --nt-card: #101112;
+      --nt-border: #24262A;
+      --nt-text: #E7E9EC;
+      --nt-muted: #8B9098;
+      --nt-faint: #63686F;
+      --nt-field: #17191B;
+      --nt-accent: #8FB4D6;
+      --nt-accent-text: #0A0E12;
+      --nt-chip: rgba(8, 9, 10, .52);
+      --nt-chip-border: rgba(255, 255, 255, .14);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: ui-sans-serif, "Segoe UI Variable Text", "Segoe UI", "Noto Sans", "Noto Sans Arabic", Tahoma, sans-serif;
+      color: #fff;
+      overflow: hidden;
+      background: #0A0B0C;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #bg-base { position: fixed; inset: 0; background: #ECEEF1; }
+    html[data-theme="dark"] #bg-base { background: #0A0B0C; }
+
+    #bg {
+      position: fixed; inset: 0;
+      background-size: cover;
+      background-position: center;
+      transition: opacity .6s ease;
+      opacity: 0;
+      transform: scale(1.01);
+    }
+    #bg.ready { opacity: 1; }
+
+    #dim {
+      position: fixed; inset: 0;
+      background: linear-gradient(180deg, rgba(6,8,10,.22) 0%, rgba(6,8,10,.40) 55%, rgba(6,8,10,.56) 100%);
+    }
+
+    #stage {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 24px 128px;
+      gap: 22px;
+    }
+
+    #brand-mark {
+      position: fixed;
+      top: 22px;
+      inset-inline-start: 24px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      user-select: none;
+    }
+    #brand-mark img { width: 24px; height: 24px; border-radius: 3px; }
+    #brand-mark .name {
+      font-size: 11.5px; font-weight: 650; letter-spacing: 1.6px; text-transform: uppercase;
+      color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.4);
+    }
+
+    #clock-wrap { text-align: center; user-select: none; }
+    #clock {
+      font-size: clamp(50px, 8.2vw, 100px);
+      font-weight: 200;
+      letter-spacing: 1px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 6px 36px rgba(0,0,0,.32);
+    }
+    #date {
+      margin-top: 10px;
+      font-size: 12.5px;
+      letter-spacing: .4px;
+      opacity: .9;
+      text-shadow: 0 2px 12px rgba(0,0,0,.45);
+    }
+    #greet {
+      margin-top: 14px;
+      font-size: 13px;
+      opacity: .94;
+      text-shadow: 0 2px 14px rgba(0,0,0,.5);
+    }
+
+    #search-form {
+      width: min(620px, 92vw);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 52px;
+      padding: 0 7px 0 16px;
+      border-radius: 3px;
+      background: var(--nt-card);
+      border: 1px solid var(--nt-border);
+      transition: border-color .14s;
+    }
+    html[dir="rtl"] #search-form { padding: 0 16px 0 7px; }
+    #search-form:focus-within { border-color: var(--nt-accent); }
+    #search-form svg {
+      width: 17px; height: 17px; flex: 0 0 auto;
+      stroke: var(--nt-muted); fill: none; stroke-width: 1.9; stroke-linecap: round;
+    }
+    #q {
+      flex: 1; min-width: 0;
+      background: transparent; border: 0; outline: 0;
+      color: var(--nt-text); font-size: 14px; font-family: inherit;
+    }
+    #q::placeholder { color: var(--nt-faint); }
+    #search-form button[type="submit"] {
+      height: 38px; padding: 0 16px;
+      border: 0; border-radius: 2px;
+      background: var(--nt-accent); color: var(--nt-accent-text);
+      font-weight: 600; font-size: 12px; letter-spacing: .3px;
+      cursor: pointer; font-family: inherit;
+      transition: opacity .12s;
+    }
+    #search-form button[type="submit"]:hover { opacity: .88; }
+    #search-form button[type="submit"]:active { opacity: .78; }
+
+    #shortcuts {
+      display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
+      max-width: 720px;
+    }
+    .sc {
+      display: flex; align-items: center; gap: 8px;
+      height: 38px; padding: 0 13px;
+      border-radius: 3px;
+      background: var(--nt-chip);
+      border: 1px solid var(--nt-chip-border);
+      color: #fff;
+      font-size: 11.5px; font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .12s, border-color .12s;
+      text-shadow: 0 1px 6px rgba(0,0,0,.32);
+    }
+    .sc:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); }
+    .sc .dot {
+      width: 19px; height: 19px; border-radius: 2px;
+      display: grid; place-items: center;
+      font-size: 9px; font-weight: 700;
+      background: rgba(255,255,255,.18); color: #fff;
+    }
+
+    /* ---------- promo banners ---------- */
+    #promos {
+      width: min(620px, 92vw);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .promo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 8px 11px;
+      background: var(--nt-card);
+      border: 1px solid var(--nt-border);
+      border-radius: 3px;
+      color: var(--nt-text);
+      text-decoration: none;
+      text-align: start;
+      transition: border-color .12s, background .12s;
+    }
+    .promo:hover { border-color: var(--nt-accent); }
+    .promo .pico {
+      flex: 0 0 auto;
+      width: 28px; height: 28px;
+      border-radius: 2px;
+      display: grid; place-items: center;
+      background: var(--nt-field);
+      color: var(--nt-accent);
+    }
+    .promo .pico svg { width: 15px; height: 15px; }
+    .promo .ptext { flex: 1 1 auto; min-width: 0; }
+    .promo .ptitle {
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .promo .psub {
+      margin-top: 2px;
+      font-size: 10.5px;
+      color: var(--nt-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .promo .pgo {
+      flex: 0 0 auto;
+      height: 26px;
+      padding: 0 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid var(--nt-border);
+      border-radius: 2px;
+      background: var(--nt-field);
+      color: var(--nt-accent);
+      font-size: 9.5px;
+      font-weight: 650;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+    }
+    .promo:hover .pgo { border-color: var(--nt-accent); }
+    .promo .pgo svg {
+      width: 10px; height: 10px;
+      fill: none; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    html[dir="rtl"] .promo .pgo svg { transform: scaleX(-1); }
+
+    @media (max-height: 700px) {
+      .promo .psub { display: none; }
+      .promo { min-height: 40px; padding: 6px 10px; }
+    }
+
+    /* ---------- bottom cards ---------- */
+    #bottom {
+      position: fixed;
+      left: 18px; right: 18px; bottom: 16px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .glass {
+      pointer-events: auto;
+      background: var(--nt-card);
+      border: 1px solid var(--nt-border);
+      border-radius: 4px;
+      padding: 11px 13px;
+      color: var(--nt-text);
+      max-width: min(520px, 64vw);
+    }
+
+    #fp-card .fp-head {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10px; font-weight: 600; letter-spacing: .8px;
+      color: var(--nt-muted); margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    #fp-card .fp-head .led {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: #2C9C76;
+    }
+    #fp-card .fp-device {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-bottom: 7px;
+      font-size: 10.5px; font-weight: 600;
+      color: var(--nt-accent);
+    }
+    #fp-card .fp-ua {
+      font-size: 10.5px;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      color: var(--nt-muted);
+      direction: ltr; text-align: left;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 8px;
+    }
+    html[dir="rtl"] #fp-card .fp-ua { text-align: right; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tags span {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 2px;
+      background: var(--nt-field);
+      color: var(--nt-muted);
+    }
+    .tags span b { color: var(--nt-text); font-weight: 600; }
+
+    #fp-card .fp-actions { display: flex; gap: 6px; margin-top: 9px; }
+    .mini {
+      height: 27px; padding: 0 10px;
+      border-radius: 2px;
+      border: 1px solid var(--nt-border);
+      background: var(--nt-field);
+      color: var(--nt-text);
+      font-size: 10.5px; font-weight: 550;
+      cursor: pointer; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: border-color .12s, color .12s;
+    }
+    .mini:hover { border-color: var(--nt-accent); color: var(--nt-accent); }
+    .mini svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+
+    #right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+    #proxy-card {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10.5px;
+      padding: 8px 12px;
+      color: var(--nt-muted);
+    }
+    #proxy-card .led { width: 5px; height: 5px; border-radius: 50%; background: #2C9C76; }
+    #proxy-card.off .led { background: var(--nt-faint); }
+    #proxy-card .mono {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      direction: ltr; color: var(--nt-text);
+    }
+    #credit {
+      font-size: 10px;
+      color: rgba(255,255,255,.74);
+      text-shadow: 0 1px 6px rgba(0,0,0,.4);
+      pointer-events: auto;
+    }
+    #credit a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.35); }
+    #credit a:hover { border-bottom-color: #fff; }
+
+    @media (max-width: 700px) {
+      #bottom { flex-direction: column; align-items: stretch; }
+      .glass { max-width: none; }
+      #right-col { align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div id="bg-base"></div>
+  <div id="bg"></div>
+  <div id="dim"></div>
+
+  <div id="brand-mark">
+    <img src="fathi://asset/icon-64.png" alt="" />
+    <div class="name">Fathi</div>
+  </div>
+
+  <main id="stage">
+    <div id="clock-wrap">
+      <div id="clock">--:--</div>
+      <div id="date"></div>
+      <div id="greet" data-i18n="newtab.greeting">Welcome back. A fresh identity is ready for this tab</div>
+    </div>
+
+    <form id="search-form" autocomplete="off">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="text" spellcheck="false" autocomplete="off"
+             data-i18n-ph="newtab.search" placeholder="Search the web or enter an address" />
+      <button type="submit" data-i18n="newtab.go">Search</button>
+    </form>
+
+    <div id="promos">
+      <a class="promo" href="https://github.com/iMumd" target="_blank" rel="noreferrer"
+         title="https://github.com/iMumd">
+        <span class="pico">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.99 5.24.99 11.5c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.71-1.47-3.71-1.47-.5-1.27-1.22-1.61-1.22-1.61-1-.68.08-.67.08-.67 1.1.08 1.68 1.13 1.68 1.13.98 1.68 2.57 1.2 3.2.92.1-.71.38-1.2.7-1.47-2.44-.28-5.01-1.22-5.01-5.43 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .92-.3 3.02 1.13a10.5 10.5 0 0 1 5.5 0c2.1-1.43 3.02-1.13 3.02-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.22-2.58 5.15-5.03 5.42.4.34.75 1.01.75 2.04v3.02c0 .3.2.64.76.53a10.52 10.52 0 0 0 7.5-10.43C23.01 5.24 18.27.5 12 .5z"/></svg>
+        </span>
+        <span class="ptext">
+          <span class="ptitle" data-i18n="newtab.ghTitle">Follow the developer</span>
+          <span class="psub" data-i18n="newtab.ghSub">iMumd on GitHub. Source, updates and security research</span>
+        </span>
+        <span class="pgo"><span data-i18n="newtab.ghGo">Follow</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <a class="promo" href="https://t.me/Mumdthoughts" target="_blank" rel="noreferrer"
+         title="https://t.me/Mumdthoughts">
+        <span class="pico">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.1-3.02-1.96 1.9c-.22.22-.41.41-.8.41z"/></svg>
+        </span>
+        <span class="ptext">
+          <span class="ptitle" data-i18n="newtab.tgTitle">Mumdthoughts</span>
+          <span class="psub" data-i18n="newtab.tgSub">Methods and security research on Telegram</span>
+        </span>
+        <span class="pgo"><span data-i18n="newtab.tgGo">Join</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+    </div>
+
+    <div id="shortcuts"></div>
+  </main>
+
+  <div id="bottom">
+    <div class="glass" id="fp-card">
+      <div class="fp-head"><span class="led"></span><span data-i18n="newtab.fpHead">This tab’s fingerprint is unique</span></div>
+      <div class="fp-device hidden" id="fp-device"></div>
+      <div class="fp-ua" id="fp-ua">…</div>
+      <div class="tags" id="fp-tags"></div>
+      <div class="fp-actions">
+        <button class="mini" id="btn-rotate">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+          <span data-i18n="newtab.rotate">New identity</span>
+        </button>
+        <button class="mini" id="btn-ext">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+          <span data-i18n="newtab.ext">Add from store</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="right-col">
+      <div class="glass" id="proxy-card">
+        <span class="led"></span>
+        <span data-i18n="newtab.proxy">Proxy</span>
+        <span class="mono" id="proxy-host">n/a</span>
+      </div>
+      <div id="credit" data-i18n="newtab.credit">Wallpaper from Unsplash</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const api = window.fathi || {};
+      const $ = (s) => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+
+      /* ---------------------------- i18n ---------------------------- */
+      const DICT = {
+        en: {
+          'newtab.greeting': 'Welcome back. A fresh identity is ready for this tab',
+          'newtab.search': 'Search the web or enter an address',
+          'newtab.go': 'Search',
+          'newtab.fpHead': 'This tab’s fingerprint is unique',
+          'newtab.rotate': 'New identity',
+          'newtab.ext': 'Add from store',
+          'newtab.proxy': 'Proxy',
+          'newtab.direct': 'Direct',
+          'newtab.credit': 'Wallpaper from Unsplash',
+          'newtab.ghTitle': 'Follow the developer',
+          'newtab.ghSub': 'iMumd on GitHub. Source, updates and security research',
+          'newtab.ghGo': 'Follow',
+          'newtab.tgTitle': 'Mumdthoughts',
+          'newtab.tgSub': 'Methods and security research on Telegram',
+          'newtab.tgGo': 'Join',
+          'newtab.installPrompt': 'Paste a Chrome Web Store link or extension ID:',
+          'newtab.installed': 'Installed: {name}',
+          'newtab.failed': 'Failed: {error}',
+          'newtab.os.windows': 'Windows',
+          'newtab.os.mac': 'macOS',
+          'newtab.os.linux': 'Linux',
+          'newtab.os.android': 'Android',
+          'newtab.os.ios': 'iOS',
+          'newtab.cores': '{n} cores'
+        },
+        ar: {
+          'newtab.greeting': 'مرحباً. هوية جديدة جاهزة لهذا التبويب',
+          'newtab.search': 'ابحث في الويب أو أدخل عنواناً',
+          'newtab.go': 'بحث',
+          'newtab.fpHead': 'بصمة هذا التبويب فريدة',
+          'newtab.rotate': 'هوية جديدة',
+          'newtab.ext': 'إضافة من المتجر',
+          'newtab.proxy': 'البروكسي',
+          'newtab.direct': 'مباشر',
+          'newtab.credit': 'خلفية من Unsplash',
+          'newtab.ghTitle': 'تابع المطوّر',
+          'newtab.ghSub': 'iMumd على GitHub. الكود والتحديثات والأبحاث الأمنية',
+          'newtab.ghGo': 'متابعة',
+          'newtab.tgTitle': 'Mumdthoughts',
+          'newtab.tgSub': 'ميثودز وأبحاث أمنية على تيليجرام',
+          'newtab.tgGo': 'انضمام',
+          'newtab.installPrompt': 'الصق رابط الإضافة من Chrome Web Store أو معرّفها:',
+          'newtab.installed': 'تم تثبيت: {name}',
+          'newtab.failed': 'فشل: {error}',
+          'newtab.os.windows': 'Windows',
+          'newtab.os.mac': 'macOS',
+          'newtab.os.linux': 'Linux',
+          'newtab.os.android': 'Android',
+          'newtab.os.ios': 'iOS',
+          'newtab.cores': '{n} أنوية'
+        }
+      };
+
+      let lang = params.get('lang') === 'ar' ? 'ar' : 'en';
+      let theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+      let settings = null;
+
+      function t(key, vars) {
+        const table = DICT[lang] || DICT.en;
+        let raw = table[key] != null ? table[key] : (DICT.en[key] || key);
+        if (vars) raw = String(raw).replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? m : vars[k]));
+        return raw;
+      }
+
+      function applyLang() {
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+        document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+        renderShortcuts();
+        renderFpCard();
+        loadProxyCard();
+      }
+
+      function applyTheme() { document.documentElement.dataset.theme = theme; }
+
+      /* ---------------------------- clock --------------------------- */
+      function tick() {
+        const d = new Date();
+        $('#clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        try {
+          $('#date').textContent = d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+          });
+        } catch {
+          $('#date').textContent = d.toDateString();
+        }
+      }
+      tick();
+      setInterval(tick, 15000);
+
+      /* -------------------------- shortcuts ------------------------- */
+      const SHORTCUTS = [
+        { label: 'GitHub', url: 'https://github.com', ch: 'GH' },
+        { label: 'YouTube', url: 'https://youtube.com', ch: 'YT' },
+        { label: 'Reddit', url: 'https://reddit.com', ch: 'RD' },
+        { label: 'Hacker News', url: 'https://news.ycombinator.com', ch: 'HN' },
+        { label: 'Wikipedia', url: 'https://wikipedia.org', ch: 'W' }
+      ];
 
       function renderShortcuts() {
         const box = $('#shortcuts');
@@ -94,3 +632,90 @@
         if (f && f.device && f.device.mobile) return f.device.os;
         return (f && f.osKey) || 'windows';
       }
+
+      function renderFpCard() {
+        if (!fp) return;
+        const f = fp;
+        const mobile = !!(f.device && f.device.mobile);
+        const deviceBox = $('#fp-device');
+        if (mobile) {
+          deviceBox.classList.remove('hidden');
+          deviceBox.textContent = f.device.name + ' · ' + f.device.width + '×' + f.device.height;
+        } else {
+          deviceBox.classList.add('hidden');
+        }
+        $('#fp-ua').textContent = shortUa(f.ua);
+        $('#fp-ua').title = f.ua || '';
+        $('#fp-tags').innerHTML = [
+          '<span><b>' + t('newtab.os.' + osKey(f)) + '</b></span>',
+          '<span>' + (mobile ? f.device.width + '×' + f.device.height : (f.screen ? f.screen.width + '×' + f.screen.height : '')) + '</span>',
+          '<span>' + (f.timezone || '') + '</span>',
+          '<span>' + (f.language || '') + '</span>',
+          '<span>' + t('newtab.cores', { n: f.hardwareConcurrency || '?' }) + '</span>',
+          '<span>' + String((f.webgl && f.webgl.vendor) || '').replace('Google Inc. ', '') + '</span>'
+        ].join('');
+      }
+
+      async function loadFp() {
+        try {
+          const res = await api.fingerprint();
+          fp = res && res.fp;
+          renderFpCard();
+        } catch (e) {}
+      }
+
+      /* --------------------------- proxy ---------------------------- */
+      async function loadProxyCard() {
+        try {
+          const res = await api.proxyStatus();
+          const p = (res && res.proxy) || {};
+          const card = $('#proxy-card');
+          if (p.enabled && p.host) {
+            $('#proxy-host').textContent = p.host;
+            card.classList.remove('off');
+          } else {
+            $('#proxy-host').textContent = t('newtab.direct');
+            card.classList.add('off');
+          }
+        } catch (e) {}
+      }
+
+      /* --------------------------- actions -------------------------- */
+      $('#btn-rotate').addEventListener('click', () => api.rotate && api.rotate());
+
+      $('#btn-ext').addEventListener('click', async () => {
+        const url = prompt(t('newtab.installPrompt'));
+        if (!url) return;
+        const btn = $('#btn-ext');
+        btn.disabled = true;
+        const res = await api.installExtension(url);
+        btn.disabled = false;
+        alert(res && res.ok ? t('newtab.installed', { name: res.record && res.record.name }) : t('newtab.failed', { error: (res && res.error) || '' }));
+      });
+
+      /* ---------------------------- boot ---------------------------- */
+      (async function boot() {
+        applyLang();
+        applyTheme();
+        try {
+          const res = api.settings ? await api.settings() : null;
+          if (res && res.ok && res.settings) {
+            settings = res.settings;
+            if (!params.get('lang')) {
+              lang = settings.language === 'ar' ? 'ar' : 'en';
+              applyLang();
+            }
+            if (!params.get('theme')) {
+              theme = settings.theme === 'dark' ? 'dark' : 'light';
+              applyTheme();
+            }
+          }
+        } catch (e) {}
+        loadWallpaper();
+        loadFp();
+        loadProxyCard();
+      })();
+    })();
+  </script>
+</body>
+</html>
