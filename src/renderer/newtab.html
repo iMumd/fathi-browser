@@ -1,103 +1,96 @@
 
-      /* ---------------------------- i18n ---------------------------- */
-      const DICT = {
-        en: {
-          'newtab.greeting': 'Welcome back. A fresh identity is ready for this tab',
-          'newtab.search': 'Search the web or enter an address',
-          'newtab.go': 'Search',
-          'newtab.fpHead': 'This tab’s fingerprint is unique',
-          'newtab.rotate': 'New identity',
-          'newtab.ext': 'Add from store',
-          'newtab.proxy': 'Proxy',
-          'newtab.direct': 'Direct',
-          'newtab.credit': 'Wallpaper from Unsplash',
-          'newtab.ghTitle': 'Follow the developer',
-          'newtab.ghSub': 'iMumd on GitHub. Source, updates and security research',
-          'newtab.ghGo': 'Follow',
-          'newtab.tgTitle': 'Mumdthoughts',
-          'newtab.tgSub': 'Methods and security research on Telegram',
-          'newtab.tgGo': 'Join',
-          'newtab.installPrompt': 'Paste a Chrome Web Store link or extension ID:',
-          'newtab.installed': 'Installed: {name}',
-          'newtab.failed': 'Failed: {error}',
-          'newtab.os.windows': 'Windows',
-          'newtab.os.mac': 'macOS',
-          'newtab.os.linux': 'Linux',
-          'newtab.os.android': 'Android',
-          'newtab.os.ios': 'iOS',
-          'newtab.cores': '{n} cores'
-        },
-        ar: {
-          'newtab.greeting': 'مرحباً. هوية جديدة جاهزة لهذا التبويب',
-          'newtab.search': 'ابحث في الويب أو أدخل عنواناً',
-          'newtab.go': 'بحث',
-          'newtab.fpHead': 'بصمة هذا التبويب فريدة',
-          'newtab.rotate': 'هوية جديدة',
-          'newtab.ext': 'إضافة من المتجر',
-          'newtab.proxy': 'البروكسي',
-          'newtab.direct': 'مباشر',
-          'newtab.credit': 'خلفية من Unsplash',
-          'newtab.ghTitle': 'تابع المطوّر',
-          'newtab.ghSub': 'iMumd على GitHub. الكود والتحديثات والأبحاث الأمنية',
-          'newtab.ghGo': 'متابعة',
-          'newtab.tgTitle': 'Mumdthoughts',
-          'newtab.tgSub': 'ميثودز وأبحاث أمنية على تيليجرام',
-          'newtab.tgGo': 'انضمام',
-          'newtab.installPrompt': 'الصق رابط الإضافة من Chrome Web Store أو معرّفها:',
-          'newtab.installed': 'تم تثبيت: {name}',
-          'newtab.failed': 'فشل: {error}',
-          'newtab.os.windows': 'Windows',
-          'newtab.os.mac': 'macOS',
-          'newtab.os.linux': 'Linux',
-          'newtab.os.android': 'Android',
-          'newtab.os.ios': 'iOS',
-          'newtab.cores': '{n} أنوية'
-        }
+      function renderShortcuts() {
+        const box = $('#shortcuts');
+        if (!box) return;
+        box.innerHTML = SHORTCUTS.map((s) =>
+          `<button class="sc" data-url="${s.url}"><span class="dot">${s.ch}</span>${s.label}</button>`
+        ).join('');
+        box.querySelectorAll('.sc').forEach((b) => {
+          b.addEventListener('click', () => api.navigate && api.navigate(b.dataset.url));
+        });
+      }
+
+      /* ---------------------------- search -------------------------- */
+      const ENGINES = {
+        duckduckgo: 'https://duckduckgo.com/?q=',
+        google: 'https://www.google.com/search?q=',
+        bing: 'https://www.bing.com/search?q=',
+        brave: 'https://search.brave.com/search?q=',
+        startpage: 'https://www.startpage.com/sp/search?query='
       };
 
-      let lang = params.get('lang') === 'ar' ? 'ar' : 'en';
-      let theme = params.get('theme') === 'dark' ? 'dark' : 'light';
-      let settings = null;
-
-      function t(key, vars) {
-        const table = DICT[lang] || DICT.en;
-        let raw = table[key] != null ? table[key] : (DICT.en[key] || key);
-        if (vars) raw = String(raw).replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? m : vars[k]));
-        return raw;
+      function normalize(input) {
+        const s = String(input || '').trim();
+        if (!s) return null;
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return s;
+        if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^\w+\.\w/.test(s)) return s;
+        if (/^(localhost|\[?[\d.a-f:]+\]?)(:\d+)?(\/.*)?$/i.test(s)) return 'http://' + s;
+        if (/^[^\s]+\.[a-z]{2,}(:\d+)?(\/.*)?$/i.test(s)) return 'https://' + s;
+        const engine = (settings && settings.searchEngine) || 'duckduckgo';
+        return (ENGINES[engine] || ENGINES.duckduckgo) + encodeURIComponent(s);
       }
 
-      function applyLang() {
-        document.documentElement.lang = lang;
-        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
-        document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
-        renderShortcuts();
-        renderFpCard();
-        loadProxyCard();
-      }
+      $('#search-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const target = normalize($('#q').value);
+        if (!target) return;
+        if (api.navigate) api.navigate(target);
+        $('#q').value = '';
+      });
+      setTimeout(() => { const q = $('#q'); if (q) q.focus(); }, 120);
 
-      function applyTheme() { document.documentElement.dataset.theme = theme; }
-
-      /* ---------------------------- clock --------------------------- */
-      function tick() {
-        const d = new Date();
-        $('#clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      /* -------------------------- wallpaper ------------------------- */
+      async function loadWallpaper() {
         try {
-          $('#date').textContent = d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', {
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-          });
-        } catch {
-          $('#date').textContent = d.toDateString();
-        }
+          const res = await api.wallpaper();
+          const w = res && res.wallpaper;
+          if (!w || !w.url) return;
+          const wp = (settings && settings.wallpapers) || {};
+          if (wp.blur) $('#bg').style.filter = 'blur(' + wp.blur + 'px)';
+          if (typeof wp.dim === 'number') {
+            $('#dim').style.background =
+              'linear-gradient(180deg, rgba(6,8,10,' + (wp.dim * 0.6) + ') 0%, rgba(6,8,10,' + wp.dim + ') 100%)';
+          }
+          const img = new Image();
+          let triedFallback = false;
+          let settled = false;
+          const timer = setTimeout(() => {
+            if (!settled && w.fallback && w.fallback !== img.src) {
+              triedFallback = true;
+              img.src = w.fallback;
+            }
+          }, 3500);
+          img.onload = () => {
+            settled = true;
+            clearTimeout(timer);
+            const bg = $('#bg');
+            bg.style.backgroundImage = 'url("' + img.src + '")';
+            bg.classList.add('ready');
+          };
+          img.onerror = () => {
+            if (!triedFallback && w.fallback && w.fallback !== img.src) {
+              triedFallback = true;
+              img.src = w.fallback;
+            }
+          };
+          img.src = w.url;
+          if (w.author && w.author !== 'Unsplash') {
+            document.getElementById('credit').innerHTML = t('newtab.credit') + ' · ' +
+              (w.link ? '<a href="' + w.link + '" target="_blank">' + w.author + '</a>' : w.author);
+          }
+        } catch (e) {}
       }
-      tick();
-      setInterval(tick, 15000);
 
-      /* -------------------------- shortcuts ------------------------- */
-      const SHORTCUTS = [
-        { label: 'GitHub', url: 'https://github.com', ch: 'GH' },
-        { label: 'YouTube', url: 'https://youtube.com', ch: 'YT' },
-        { label: 'Reddit', url: 'https://reddit.com', ch: 'RD' },
-        { label: 'Hacker News', url: 'https://news.ycombinator.com', ch: 'HN' },
-        { label: 'Wikipedia', url: 'https://wikipedia.org', ch: 'W' }
-      ];
+      /* ------------------------- fingerprint ------------------------ */
+      function shortUa(ua) {
+        const m = String(ua || '').match(/\(([^)]+)\)/);
+        const c = String(ua || '').match(/Chrome\/(\d+)/);
+        return (m ? m[1] : '') + (c ? ' · Chrome ' + c[1] : '');
+      }
+
+      let fp = null;
+
+      function osKey(f) {
+        if (f && f.device && f.device.mobile) return f.device.os;
+        return (f && f.osKey) || 'windows';
+      }
