@@ -1,90 +1,77 @@
 
-    #fp-card .fp-head {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 10px; font-weight: 600; letter-spacing: .8px;
-      color: var(--nt-muted); margin-bottom: 8px;
-      text-transform: uppercase;
-    }
-    #fp-card .fp-head .led {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: #2C9C76;
-    }
-    #fp-card .fp-device {
-      display: inline-flex; align-items: center; gap: 6px;
-      margin-bottom: 7px;
-      font-size: 10.5px; font-weight: 600;
-      color: var(--nt-accent);
-    }
-    #fp-card .fp-ua {
-      font-size: 10.5px;
-      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      color: var(--nt-muted);
-      direction: ltr; text-align: left;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      margin-bottom: 8px;
-    }
-    html[dir="rtl"] #fp-card .fp-ua { text-align: right; }
-    .tags { display: flex; flex-wrap: wrap; gap: 4px; }
-    .tags span {
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 2px;
-      background: var(--nt-field);
-      color: var(--nt-muted);
-    }
-    .tags span b { color: var(--nt-text); font-weight: 600; }
+  <main id="stage">
+    <div id="clock-wrap">
+      <div id="clock">--:--</div>
+      <div id="date"></div>
+      <div id="greet" data-i18n="newtab.greeting">Welcome back. A fresh identity is ready for this tab</div>
+    </div>
 
-    #fp-card .fp-actions { display: flex; gap: 6px; margin-top: 9px; }
-    .mini {
-      height: 27px; padding: 0 10px;
-      border-radius: 2px;
-      border: 1px solid var(--nt-border);
-      background: var(--nt-field);
-      color: var(--nt-text);
-      font-size: 10.5px; font-weight: 550;
-      cursor: pointer; font-family: inherit;
-      display: inline-flex; align-items: center; gap: 6px;
-      transition: border-color .12s, color .12s;
-    }
-    .mini:hover { border-color: var(--nt-accent); color: var(--nt-accent); }
-    .mini svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+    <form id="search-form" autocomplete="off">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="text" spellcheck="false" autocomplete="off"
+             data-i18n-ph="newtab.search" placeholder="Search the web or enter an address" />
+      <button type="submit" data-i18n="newtab.go">Search</button>
+    </form>
 
-    #right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    <div id="promos">
+      <a class="promo" href="https://github.com/iMumd" target="_blank" rel="noreferrer"
+         title="https://github.com/iMumd">
+        <span class="pico">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.99 5.24.99 11.5c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.71-1.47-3.71-1.47-.5-1.27-1.22-1.61-1.22-1.61-1-.68.08-.67.08-.67 1.1.08 1.68 1.13 1.68 1.13.98 1.68 2.57 1.2 3.2.92.1-.71.38-1.2.7-1.47-2.44-.28-5.01-1.22-5.01-5.43 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .92-.3 3.02 1.13a10.5 10.5 0 0 1 5.5 0c2.1-1.43 3.02-1.13 3.02-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.22-2.58 5.15-5.03 5.42.4.34.75 1.01.75 2.04v3.02c0 .3.2.64.76.53a10.52 10.52 0 0 0 7.5-10.43C23.01 5.24 18.27.5 12 .5z"/></svg>
+        </span>
+        <span class="ptext">
+          <span class="ptitle" data-i18n="newtab.ghTitle">Follow the developer</span>
+          <span class="psub" data-i18n="newtab.ghSub">iMumd on GitHub. Source, updates and security research</span>
+        </span>
+        <span class="pgo"><span data-i18n="newtab.ghGo">Follow</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
 
-    #proxy-card {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 10.5px;
-      padding: 8px 12px;
-      color: var(--nt-muted);
-    }
-    #proxy-card .led { width: 5px; height: 5px; border-radius: 50%; background: #2C9C76; }
-    #proxy-card.off .led { background: var(--nt-faint); }
-    #proxy-card .mono {
-      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      direction: ltr; color: var(--nt-text);
-    }
-    #credit {
-      font-size: 10px;
-      color: rgba(255,255,255,.74);
-      text-shadow: 0 1px 6px rgba(0,0,0,.4);
-      pointer-events: auto;
-    }
-    #credit a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.35); }
-    #credit a:hover { border-bottom-color: #fff; }
+      <a class="promo" href="https://t.me/Mumdthoughts" target="_blank" rel="noreferrer"
+         title="https://t.me/Mumdthoughts">
+        <span class="pico">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.1-3.02-1.96 1.9c-.22.22-.41.41-.8.41z"/></svg>
+        </span>
+        <span class="ptext">
+          <span class="ptitle" data-i18n="newtab.tgTitle">Mumdthoughts</span>
+          <span class="psub" data-i18n="newtab.tgSub">Methods and security research on Telegram</span>
+        </span>
+        <span class="pgo"><span data-i18n="newtab.tgGo">Join</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+    </div>
 
-    @media (max-width: 700px) {
-      #bottom { flex-direction: column; align-items: stretch; }
-      .glass { max-width: none; }
-      #right-col { align-items: stretch; }
-    }
-  </style>
-</head>
-<body>
-  <div id="bg-base"></div>
-  <div id="bg"></div>
-  <div id="dim"></div>
+    <div id="shortcuts"></div>
+  </main>
 
-  <div id="brand-mark">
-    <img src="fathi://asset/icon-64.png" alt="" />
-    <div class="name">Fathi</div>
+  <div id="bottom">
+    <div class="glass" id="fp-card">
+      <div class="fp-head"><span class="led"></span><span data-i18n="newtab.fpHead">This tab’s fingerprint is unique</span></div>
+      <div class="fp-device hidden" id="fp-device"></div>
+      <div class="fp-ua" id="fp-ua">…</div>
+      <div class="tags" id="fp-tags"></div>
+      <div class="fp-actions">
+        <button class="mini" id="btn-rotate">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+          <span data-i18n="newtab.rotate">New identity</span>
+        </button>
+        <button class="mini" id="btn-ext">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+          <span data-i18n="newtab.ext">Add from store</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="right-col">
+      <div class="glass" id="proxy-card">
+        <span class="led"></span>
+        <span data-i18n="newtab.proxy">Proxy</span>
+        <span class="mono" id="proxy-host">n/a</span>
+      </div>
+      <div id="credit" data-i18n="newtab.credit">Wallpaper from Unsplash</div>
+    </div>
   </div>
+
+  <script>
+    (function () {
+      const api = window.fathi || {};
+      const $ = (s) => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
