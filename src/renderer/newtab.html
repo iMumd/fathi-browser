@@ -1,77 +1,103 @@
 
-  <main id="stage">
-    <div id="clock-wrap">
-      <div id="clock">--:--</div>
-      <div id="date"></div>
-      <div id="greet" data-i18n="newtab.greeting">Welcome back. A fresh identity is ready for this tab</div>
-    </div>
+      /* ---------------------------- i18n ---------------------------- */
+      const DICT = {
+        en: {
+          'newtab.greeting': 'Welcome back. A fresh identity is ready for this tab',
+          'newtab.search': 'Search the web or enter an address',
+          'newtab.go': 'Search',
+          'newtab.fpHead': 'This tab’s fingerprint is unique',
+          'newtab.rotate': 'New identity',
+          'newtab.ext': 'Add from store',
+          'newtab.proxy': 'Proxy',
+          'newtab.direct': 'Direct',
+          'newtab.credit': 'Wallpaper from Unsplash',
+          'newtab.ghTitle': 'Follow the developer',
+          'newtab.ghSub': 'iMumd on GitHub. Source, updates and security research',
+          'newtab.ghGo': 'Follow',
+          'newtab.tgTitle': 'Mumdthoughts',
+          'newtab.tgSub': 'Methods and security research on Telegram',
+          'newtab.tgGo': 'Join',
+          'newtab.installPrompt': 'Paste a Chrome Web Store link or extension ID:',
+          'newtab.installed': 'Installed: {name}',
+          'newtab.failed': 'Failed: {error}',
+          'newtab.os.windows': 'Windows',
+          'newtab.os.mac': 'macOS',
+          'newtab.os.linux': 'Linux',
+          'newtab.os.android': 'Android',
+          'newtab.os.ios': 'iOS',
+          'newtab.cores': '{n} cores'
+        },
+        ar: {
+          'newtab.greeting': 'مرحباً. هوية جديدة جاهزة لهذا التبويب',
+          'newtab.search': 'ابحث في الويب أو أدخل عنواناً',
+          'newtab.go': 'بحث',
+          'newtab.fpHead': 'بصمة هذا التبويب فريدة',
+          'newtab.rotate': 'هوية جديدة',
+          'newtab.ext': 'إضافة من المتجر',
+          'newtab.proxy': 'البروكسي',
+          'newtab.direct': 'مباشر',
+          'newtab.credit': 'خلفية من Unsplash',
+          'newtab.ghTitle': 'تابع المطوّر',
+          'newtab.ghSub': 'iMumd على GitHub. الكود والتحديثات والأبحاث الأمنية',
+          'newtab.ghGo': 'متابعة',
+          'newtab.tgTitle': 'Mumdthoughts',
+          'newtab.tgSub': 'ميثودز وأبحاث أمنية على تيليجرام',
+          'newtab.tgGo': 'انضمام',
+          'newtab.installPrompt': 'الصق رابط الإضافة من Chrome Web Store أو معرّفها:',
+          'newtab.installed': 'تم تثبيت: {name}',
+          'newtab.failed': 'فشل: {error}',
+          'newtab.os.windows': 'Windows',
+          'newtab.os.mac': 'macOS',
+          'newtab.os.linux': 'Linux',
+          'newtab.os.android': 'Android',
+          'newtab.os.ios': 'iOS',
+          'newtab.cores': '{n} أنوية'
+        }
+      };
 
-    <form id="search-form" autocomplete="off">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="q" type="text" spellcheck="false" autocomplete="off"
-             data-i18n-ph="newtab.search" placeholder="Search the web or enter an address" />
-      <button type="submit" data-i18n="newtab.go">Search</button>
-    </form>
+      let lang = params.get('lang') === 'ar' ? 'ar' : 'en';
+      let theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+      let settings = null;
 
-    <div id="promos">
-      <a class="promo" href="https://github.com/iMumd" target="_blank" rel="noreferrer"
-         title="https://github.com/iMumd">
-        <span class="pico">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.99 5.24.99 11.5c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.71-1.47-3.71-1.47-.5-1.27-1.22-1.61-1.22-1.61-1-.68.08-.67.08-.67 1.1.08 1.68 1.13 1.68 1.13.98 1.68 2.57 1.2 3.2.92.1-.71.38-1.2.7-1.47-2.44-.28-5.01-1.22-5.01-5.43 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .92-.3 3.02 1.13a10.5 10.5 0 0 1 5.5 0c2.1-1.43 3.02-1.13 3.02-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.22-2.58 5.15-5.03 5.42.4.34.75 1.01.75 2.04v3.02c0 .3.2.64.76.53a10.52 10.52 0 0 0 7.5-10.43C23.01 5.24 18.27.5 12 .5z"/></svg>
-        </span>
-        <span class="ptext">
-          <span class="ptitle" data-i18n="newtab.ghTitle">Follow the developer</span>
-          <span class="psub" data-i18n="newtab.ghSub">iMumd on GitHub. Source, updates and security research</span>
-        </span>
-        <span class="pgo"><span data-i18n="newtab.ghGo">Follow</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </a>
+      function t(key, vars) {
+        const table = DICT[lang] || DICT.en;
+        let raw = table[key] != null ? table[key] : (DICT.en[key] || key);
+        if (vars) raw = String(raw).replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? m : vars[k]));
+        return raw;
+      }
 
-      <a class="promo" href="https://t.me/Mumdthoughts" target="_blank" rel="noreferrer"
-         title="https://t.me/Mumdthoughts">
-        <span class="pico">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.1-3.02-1.96 1.9c-.22.22-.41.41-.8.41z"/></svg>
-        </span>
-        <span class="ptext">
-          <span class="ptitle" data-i18n="newtab.tgTitle">Mumdthoughts</span>
-          <span class="psub" data-i18n="newtab.tgSub">Methods and security research on Telegram</span>
-        </span>
-        <span class="pgo"><span data-i18n="newtab.tgGo">Join</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </a>
-    </div>
+      function applyLang() {
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+        document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+        renderShortcuts();
+        renderFpCard();
+        loadProxyCard();
+      }
 
-    <div id="shortcuts"></div>
-  </main>
+      function applyTheme() { document.documentElement.dataset.theme = theme; }
 
-  <div id="bottom">
-    <div class="glass" id="fp-card">
-      <div class="fp-head"><span class="led"></span><span data-i18n="newtab.fpHead">This tab’s fingerprint is unique</span></div>
-      <div class="fp-device hidden" id="fp-device"></div>
-      <div class="fp-ua" id="fp-ua">…</div>
-      <div class="tags" id="fp-tags"></div>
-      <div class="fp-actions">
-        <button class="mini" id="btn-rotate">
-          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
-          <span data-i18n="newtab.rotate">New identity</span>
-        </button>
-        <button class="mini" id="btn-ext">
-          <svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
-          <span data-i18n="newtab.ext">Add from store</span>
-        </button>
-      </div>
-    </div>
+      /* ---------------------------- clock --------------------------- */
+      function tick() {
+        const d = new Date();
+        $('#clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        try {
+          $('#date').textContent = d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+          });
+        } catch {
+          $('#date').textContent = d.toDateString();
+        }
+      }
+      tick();
+      setInterval(tick, 15000);
 
-    <div id="right-col">
-      <div class="glass" id="proxy-card">
-        <span class="led"></span>
-        <span data-i18n="newtab.proxy">Proxy</span>
-        <span class="mono" id="proxy-host">n/a</span>
-      </div>
-      <div id="credit" data-i18n="newtab.credit">Wallpaper from Unsplash</div>
-    </div>
-  </div>
-
-  <script>
-    (function () {
-      const api = window.fathi || {};
-      const $ = (s) => document.querySelector(s);
-      const params = new URLSearchParams(location.search);
+      /* -------------------------- shortcuts ------------------------- */
+      const SHORTCUTS = [
+        { label: 'GitHub', url: 'https://github.com', ch: 'GH' },
+        { label: 'YouTube', url: 'https://youtube.com', ch: 'YT' },
+        { label: 'Reddit', url: 'https://reddit.com', ch: 'RD' },
+        { label: 'Hacker News', url: 'https://news.ycombinator.com', ch: 'HN' },
+        { label: 'Wikipedia', url: 'https://wikipedia.org', ch: 'W' }
+      ];
