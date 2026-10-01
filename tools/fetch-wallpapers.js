@@ -35,3 +35,38 @@ async function download(url) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return Buffer.from(await res.arrayBuffer());
+}
+
+async function main() {
+  fs.mkdirSync(OUT, { recursive: true });
+  for (let i = 0; i < PHOTOS.length; i += 1) {
+    const photo = PHOTOS[i];
+    const file = `${String(i + 1).padStart(2, '0')}-${photo.name}.jpg`;
+    const dest = path.join(OUT, file);
+    if (fs.existsSync(dest) && fs.statSync(dest).size > 120 * 1024) {
+      console.log('skip  ' + file);
+      continue;
+    }
+    const remote = `https://images.unsplash.com/${photo.id}?auto=format&fit=crop&w=${WIDTH}&q=85`;
+    let buf = null;
+    for (let attempt = 1; attempt <= 4 && !buf; attempt += 1) {
+      try {
+        buf = await download(remote);
+      } catch (e) {
+        console.log(`retry ${attempt} ${photo.name}: ${e.message}`);
+        await new Promise((r) => setTimeout(r, 900 * attempt));
+      }
+    }
+    if (!buf) { console.log('FAILED ' + photo.name); continue; }
+
+    await sharp(buf)
+      .resize(WIDTH, HEIGHT, { fit: 'cover', position: 'attention' })
+      .jpeg({ quality: 82, mozjpeg: true, progressive: true })
+      .toFile(dest);
+
+    console.log('wrote ' + file + '  ' + Math.round(fs.statSync(dest).size / 1024) + ' KB');
+  }
+  console.log('wallpapers ready: assets/wallpapers/');
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
