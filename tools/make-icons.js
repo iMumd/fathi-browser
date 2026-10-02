@@ -44,3 +44,47 @@ function buildIco(pngBuffers) {
 
   return Buffer.concat([header, ...entries, ...pngBuffers.map((p) => p.data)]);
 }
+
+async function main() {
+  const svg = fs.readFileSync(SVG);
+
+  const rendered = {};
+  for (const size of SIZES) {
+    const buf = await sharp(svg, { density: 600 })
+      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    rendered[size] = buf;
+
+    if (size >= 16 && size <= 512) {
+      fs.writeFileSync(path.join(OUT_ICONS, `${size}x${size}.png`), buf);
+    }
+  }
+
+  // main app icon (source for electron-builder)
+  fs.writeFileSync(path.join(OUT_BUILD, 'icon.png'), rendered[1024]);
+
+  // ui assets
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon.png'), rendered[512]);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon-1024.png'), rendered[1024]);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon-256.png'), rendered[256]);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon-128.png'), rendered[128]);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon-64.png'), rendered[64]);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon-32.png'), rendered[32]);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon-16.png'), rendered[16]);
+
+  // windows .ico (multi size, PNG frames)
+  const ico = buildIco([16, 24, 32, 48, 64, 128, 256].map((s) => ({ size: s, data: rendered[s] })));
+  fs.writeFileSync(path.join(OUT_BUILD, 'icon.ico'), ico);
+  fs.writeFileSync(path.join(OUT_ASSETS, 'icon.ico'), ico);
+
+  // linux hicolor set is already in build/icons/*.png
+
+  console.log('icons written');
+  console.log('  build/icon.png      1024x1024');
+  console.log('  build/icon.ico      16..256 (multi)');
+  console.log('  build/icons/*.png   linux set');
+  console.log('  assets/icon*.png    ui sizes');
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
