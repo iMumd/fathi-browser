@@ -79,3 +79,83 @@ app.whenReady().then(async () => {
   });
 
   await win.loadFile(path.join(__dirname, 'wvhost.html'));
+
+  const script = `(async () => {
+    const wv = document.createElement('webview');
+    wv.setAttribute('partition', ${JSON.stringify(PARTITION)});
+    wv.setAttribute('src', ${JSON.stringify(TARGET)});
+    document.body.appendChild(wv);
+
+    const ready = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('webview load timeout')), 60000);
+      wv.addEventListener('dom-ready', () => { clearTimeout(t); resolve(); });
+      wv.addEventListener('did-fail-load', (e) => { clearTimeout(t); reject(new Error('fail: ' + e.errorCode + ' ' + e.errorDescription)); });
+    });
+
+    await ready;
+
+    const info = await wv.executeJavaScript(\`(async () => {
+      const out = {
+        ua: navigator.userAgent,
+        platform: navigator.platform,
+        langs: navigator.languages,
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        wd: navigator.webdriver,
+        gl: (() => {
+          const c = document.createElement('canvas');
+          const g = c.getContext('webgl');
+          const d = g && g.getExtension('WEBGL_debug_renderer_info');
+          return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : null;
+        })(),
+        href: location.href,
+        text: (document.body ? document.body.innerText : '').slice(0, 400)
+      };
+      try {
+        const r = await fetch('https://httpbin.org/headers', { cache: 'no-store' });
+        out.headers = (await r.json()).headers;
+      } catch (e) { out.headersError = String(e); }
+      return out;
+    })()\`);
+
+    return info;
+  })()`;
+
+  let result;
+  try {
+    result = await win.webContents.executeJavaScript(script, true);
+  } catch (e) {
+    result = { error: String(e && e.message || e) };
+  }
+
+  const h = (result && result.headers) || {};
+  const checks = [];
+  const add = (n, p, d) => checks.push({ n, p: !!p, d: d === undefined ? '' : String(d) });
+
+  add('webview navigated', result && !result.error, result && (result.error || result.href));
+  add('JS UA spoofed in webview', result && result.ua === fp.ua, result && result.ua);
+  add('JS platform spoofed', result && result.platform === fp.platform, result && result.platform);
+  add('JS timezone spoofed', result && result.tz === fp.timezone, result && result.tz);
+  add('JS webdriver false', result && result.wd === false, result && result.wd);
+  add('JS webgl spoofed', result && result.gl === fp.webgl.renderer, result && result.gl);
+  add('header User-Agent spoofed', h['User-Agent'] === fp.ua, h['User-Agent']);
+  add('header Accept-Language spoofed', (h['Accept-Language'] || '').includes(fp.language), h['Accept-Language']);
+  add('header sec-ch-ua platform', (h['Sec-Ch-Ua-Platform'] || h['sec-ch-ua-platform'] || '').includes(fp.uaDataPlatform),
+    h['Sec-Ch-Ua-Platform'] || h['sec-ch-ua-platform']);
+  add('header sec-ch-ua brands', /Google Chrome/.test(h['Sec-Ch-Ua'] || h['sec-ch-ua'] || ''),
+    h['Sec-Ch-Ua'] || h['sec-ch-ua']);
+  add('session is in-memory (no persist)', !PARTITION.startsWith('persist:'), PARTITION);
+
+  const lines = ['=== FATHI WEBVIEW SELF-TEST ==='];
+  for (const c of checks) lines.push(`${c.p ? 'PASS' : 'FAIL'}  ${c.n}  :: ${c.d}`);
+  lines.push(`result: ${checks.filter((c) => c.p).length}/${checks.length} passed`);
+  lines.push(checks.every((c) => c.p) ? 'WEBVIEW_OK' : 'WEBVIEW_FAIL');
+  const text = lines.join('\n') + '\n';
+  fs.writeFileSync(OUT, text, 'utf8');
+  log(text);
+
+  win.destroy();
+  setTimeout(() => app.exit(checks.every((c) => c.p) ? 0 : 1), 200);
+}).catch((e) => {
+  fs.appendFileSync(OUT, 'WEBVIEW_CRASH ' + String(e && e.stack || e) + '\n');
+  app.exit(2);
+});
