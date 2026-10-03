@@ -120,3 +120,108 @@ async function ipThrough(ses, entry) {
       resolve({ error: String(e.message || e) });
     }
   });
+}
+
+async function proxyCheck() {
+  const settings = require('../src/main/settings');
+  settings.load();
+
+  const direct = await ipThrough(session.defaultSession, null);
+
+  const entry = proxyMgr.parseEntry(settings.get().proxy.pool[0]);
+  if (!entry) return { ok: false, skipped: true, error: 'no proxy configured' };
+
+  const ses = session.fromPartition('fathi-selftest-proxy');
+  await ses.setProxy({ proxyRules: entry.rules, proxyBypassRules: '<local>' });
+  const viaProxy = await ipThrough(ses, entry);
+
+  return {
+    ok: !!viaProxy.ip,
+    host: `${entry.host}:${entry.port}`,
+    direct: direct.ip || direct.error || '',
+    proxy: viaProxy.ip || viaProxy.error || ''
+  };
+}
+
+function diffFingerprints(a, b) {
+  const keys = ['ua', 'platform', 'language', 'tz', 'cores', 'mem', 'screen', 'glVendor', 'glRenderer'];
+  const diffs = [];
+  for (const k of keys) {
+    const av = JSON.stringify(a[k]);
+    const bv = JSON.stringify(b[k]);
+    if (av !== bv) diffs.push(k);
+  }
+  return diffs;
+}
+
+(async () => {
+  log('waiting for ready');
+  await app.whenReady();
+  log('ready');
+
+  const checks = [];
+  const add = (name, pass, detail) => checks.push({ name, pass: !!pass, detail });
+
+  log('probing A');
+  const { res: a, win: winA } = await probe(fpA);
+  log('probe A done');
+  const { res: b, win: winB } = await probe(fpB);
+  log('probe B done');
+
+  add('UA matches profile', a.ua === fpA.ua, a.ua);
+  add('UA differs between tabs', a.ua !== b.ua, `${a.ua.slice(0, 40)} != ${b.ua.slice(0, 40)}`);
+  add('platform matches', a.platform === fpA.platform, a.platform);
+  add('language matches', a.language === fpA.language, a.language);
+  add('language list matches', JSON.stringify(a.languages) === JSON.stringify(fpA.languages), JSON.stringify(a.languages));
+  add('timezone matches', a.tz === fpA.timezone, a.tz);
+  add('timezone offset consistent', Math.abs(a.offset) <= 840, String(a.offset));
+  add('hardwareConcurrency matches', a.cores === fpA.hardwareConcurrency, `${a.cores} vs ${fpA.hardwareConcurrency}`);
+  add('deviceMemory matches', a.mem === fpA.deviceMemory, `${a.mem} vs ${fpA.deviceMemory}`);
+  add('webdriver is false', a.webdriver === false, String(a.webdriver));
+  add('screen matches', a.screen[0] === fpA.screen.width && a.screen[1] === fpA.screen.height, JSON.stringify(a.screen));
+  add('dpr matches', a.screen[3] === fpA.screen.dpr, String(a.screen[3]));
+  add('WebGL vendor spoofed', a.glVendor === fpA.webgl.vendor, a.glVendor);
+  add('WebGL renderer spoofed', a.glRenderer === fpA.webgl.renderer, a.glRenderer);
+  add('plugins list present', a.plugins === (fpA.plugins || []).length, `${a.plugins} vs ${(fpA.plugins || []).length}`);
+  add('userAgentData platform', a.uaDataPlatform === fpA.uaDataPlatform, String(a.uaDataPlatform));
+  add('userAgentData brands match', JSON.stringify(a.uaDataBrands) === JSON.stringify(fpA.uaBrands), JSON.stringify(a.uaDataBrands));
+  add('high entropy hints', !!a.high && a.high.architecture === fpA.architecture, JSON.stringify(a.high));
+  add('canvas noise is stable', a.canvas1 === a.canvas2, 'two toDataURL calls equal');
+  add('canvas differs between tabs', a.canvas1 !== b.canvas1, hashes(a.canvas1) + ' vs ' + hashes(b.canvas1));
+  add('fingerprint identity differs', diffFingerprints(a, b).length >= 3, diffFingerprints(a, b).join(','));
+
+  winA.destroy();
+  winB.destroy();
+
+  const proxy = await proxyCheck();
+  if (proxy.skipped) {
+    add('proxy is unset by default', true, 'add one in settings when needed');
+  } else {
+    add('proxy reaches internet', proxy.ok, `${proxy.host} -> ${proxy.proxy}`);
+    add('proxy IP differs from direct', proxy.ok && proxy.direct && proxy.proxy && proxy.direct !== proxy.proxy,
+      `direct ${proxy.direct} / proxy ${proxy.proxy}`);
+  }
+
+  const failed = checks.filter((c) => !c.pass);
+  const lines = [];
+  lines.push('=== FATHI SELF-TEST ===');
+  for (const c of checks) {
+    lines.push(`${c.pass ? 'PASS' : 'FAIL'}  ${c.name}  ${c.detail ? ':: ' + c.detail : ''}`);
+  }
+  lines.push(`result: ${checks.length - failed.length}/${checks.length} passed`);
+  lines.push(failed.length ? 'SELFTEST_FAIL' : 'SELFTEST_OK');
+  lines.push('SELFTEST_JSON ' + JSON.stringify({ checks, proxy, sample: {
+    ua: a.ua, tz: a.tz, screen: a.screen, glRenderer: a.glRenderer
+  } }));
+
+  const text = lines.join('\n') + '\n';
+  console.log(text);
+  try {
+    require('node:fs').writeFileSync(require('node:path').join(__dirname, '..', 'selftest-result.txt'), text, 'utf8');
+  } catch (e) {}
+
+  setTimeout(() => app.exit(failed.length ? 1 : 0), 300);
+})().catch((e) => {
+  console.error('SELFTEST_CRASH', e);
+  app.exit(2);
+});
