@@ -98,9 +98,11 @@
       "executableName": "fathi",
       "artifactName": "Fathi-${version}-linux-${arch}.${ext}",
       "desktop": {
-        "Name": "Fathi",
-        "Comment": "Private browser with per-tab fingerprints",
-        "StartupWMClass": "Fathi"
+        "entry": {
+          "Name": "Fathi",
+          "Comment": "Private browser with per-tab fingerprints",
+          "StartupWMClass": "Fathi"
+        }
       }
     },
     "mac": {
