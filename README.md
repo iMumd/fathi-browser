@@ -22,7 +22,7 @@ Linux archive, a macOS build, and the full source.
 - Request and response capture with export to HAR, XML, JSON, and CSV.
 - Any captured request can be copied as cURL, Python, PHP, Node, PowerShell,
   Go, or raw HTTP.
-- A built in proxy with a Burp Suite preset.
+- Proxy configuration for each tab, with a Burp Suite preset.
 - Device emulation that matches user agent, viewport, screen, pixel ratio,
   touch, and platform.
 - Chrome Web Store extensions.
