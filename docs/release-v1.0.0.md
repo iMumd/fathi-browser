@@ -38,8 +38,13 @@ and Security, Open Anyway.
 The Linux archive is a portable directory build. Extract it and run `fathi`.
 AppImage and deb packages can be produced on Ubuntu with `npm run dist:linux`.
 
-## Credits
+## About
 
-Developed by [iMumd](https://github.com/iMumd).
+Fathi is built by [iMumd](https://github.com/iMumd).
 
-Telegram: [Mumdthoughts](https://t.me/Mumdthoughts).
+- GitHub: [github.com/iMumd](https://github.com/iMumd)
+- Telegram: [@aweing](https://t.me/aweing)
+- Channel: [Mumdthoughts](https://t.me/Mumdthoughts)
+- Email: [hi@mumd.dev](mailto:hi@mumd.dev)
+
+Bundled photography from [Unsplash](https://unsplash.com).

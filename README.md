@@ -65,11 +65,15 @@ Fathi keeps no history, cache, or cookies after a tab or the app closes. Only
 `fathi-config.json` is stored, and it holds preferences alone. Network capture
 stays in memory until you export it.
 
-## Credits
+## About
 
-Developed by [iMumd](https://github.com/iMumd).
+Fathi is an independent project by [iMumd](https://github.com/iMumd), focused
+on private browsing, fingerprint research, and request inspection.
 
-Telegram: [Mumdthoughts](https://t.me/Mumdthoughts).
+- GitHub: [github.com/iMumd](https://github.com/iMumd)
+- Telegram: [@aweing](https://t.me/aweing)
+- Channel: [Mumdthoughts](https://t.me/Mumdthoughts)
+- Email: [hi@mumd.dev](mailto:hi@mumd.dev)
 
 Bundled photography from [Unsplash](https://unsplash.com).
 
