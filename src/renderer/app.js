@@ -1977,15 +1977,41 @@ function renderSection(section) {
     </div>
 
     <div class="card credit-card">
-      <div class="credit-avatar">M</div>
+      <div class="credit-avatar">iM</div>
       <div class="credit-text">
         <b>${esc(t('about.credit'))}</b>
         <span>${esc(t('about.creditSub'))}</span>
       </div>
-      <button class="btn primary" id="about-telegram">
+      <button class="btn primary" id="about-telegram" type="button">
         <svg viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 3z"/></svg>
         ${esc(t('about.message'))}
       </button>
+    </div>
+
+    <div class="card">
+      <h3>${esc(t('about.links'))}</h3>
+      <div class="about-links">
+        <button class="about-link" id="about-github" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.99 5.24.99 11.5c0 4.86 3.15 8.98 7.52 10.44.55.1.75-.24.75-.53v-1.86c-3.06.67-3.71-1.47-3.71-1.47-.5-1.27-1.22-1.61-1.22-1.61-1-.68.08-.67.08-.67 1.1.08 1.68 1.13 1.68 1.13.98 1.68 2.57 1.2 3.2.92.1-.71.38-1.2.7-1.47-2.44-.28-5.01-1.22-5.01-5.43 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.4.11-2.92 0 0 .92-.3 3.02 1.13a10.5 10.5 0 0 1 5.5 0c2.1-1.43 3.02-1.13 3.02-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.75 1.13 2.95 0 4.22-2.58 5.15-5.03 5.42.4.34.75 1.01.75 2.04v3.02c0 .3.2.64.76.53a10.52 10.52 0 0 0 7.5-10.43C23.01 5.24 18.27.5 12 .5z"/></svg>
+          <span class="about-link-text"><b>${esc(t('about.github'))}</b><span>${esc(t('about.githubSub'))}</span></span>
+          <span class="about-link-go">github.com/iMumd</span>
+        </button>
+        <button class="about-link" id="about-telegram-link" type="button">
+          <svg viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 3z"/></svg>
+          <span class="about-link-text"><b>${esc(t('about.telegram'))}</b><span>${esc(t('about.telegramSub'))}</span></span>
+          <span class="about-link-go">t.me/aweing</span>
+        </button>
+        <button class="about-link" id="about-channel" type="button">
+          <svg viewBox="0 0 24 24"><path d="M21 4L3 11l5 2 2 6 3-4 5 3z"/></svg>
+          <span class="about-link-text"><b>${esc(t('about.channel'))}</b><span>${esc(t('about.channelSub'))}</span></span>
+          <span class="about-link-go">t.me/Mumdthoughts</span>
+        </button>
+        <button class="about-link" id="about-email" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 6l9 6 9-6"/></svg>
+          <span class="about-link-text"><b>${esc(t('about.email'))}</b><span>${esc(t('about.emailSub'))}</span></span>
+          <span class="about-link-go">hi@mumd.dev</span>
+        </button>
+      </div>
     </div>
 
     <div class="card">
@@ -2001,13 +2027,25 @@ function renderSection(section) {
     </div>
 
     <div class="card">
+      <h3>${esc(t('about.creditsTitle'))}</h3>
+      <p class="hint" style="margin:0 0 8px">${esc(t('about.credits'))}</p>
+      <p class="hint" style="margin:0">${esc(t('about.license'))}</p>
+    </div>
+
+    <div class="card">
       <h3>${esc(t('about.openSource'))}</h3>
       <p class="hint" style="margin:0">${esc(t('about.openSourceText'))}</p>
     </div>`;
 
-  $('#about-telegram').addEventListener('click', () => {
-    window.api.openExternal('https://t.me/aweing');
-  });
+  const openLink = (id, url) => {
+    const el = $('#' + id);
+    if (el) el.addEventListener('click', () => window.api.openExternal(url));
+  };
+  openLink('about-telegram', 'https://t.me/aweing');
+  openLink('about-telegram-link', 'https://t.me/aweing');
+  openLink('about-github', 'https://github.com/iMumd');
+  openLink('about-channel', 'https://t.me/Mumdthoughts');
+  openLink('about-email', 'mailto:hi@mumd.dev');
 }
 
 async function renderProxyStatus() {
