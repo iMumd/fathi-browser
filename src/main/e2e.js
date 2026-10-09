@@ -126,6 +126,32 @@ async function run(win) {
       /GitHub/.test(promos[0].sub || '') && /Telegram/.test(promos[1].sub || ''),
     JSON.stringify(promos));
 
+  /* ---- 2d. about section shows the developer and links */
+  const about = await ui.executeJavaScript(`(async () => {
+    openSettings('about');
+    await new Promise((r) => setTimeout(r, 250));
+    const overlay = document.getElementById('settings-overlay');
+    const body = document.getElementById('settings-body');
+    const text = body ? body.innerText : '';
+    const out = {
+      visible: !!overlay && !overlay.classList.contains('hidden'),
+      github: !!document.getElementById('about-github'),
+      telegram: !!document.getElementById('about-telegram-link'),
+      channel: !!document.getElementById('about-channel'),
+      email: !!document.getElementById('about-email'),
+      hasName: /iMumd/.test(text),
+      hasGithub: /github\\.com\\/iMumd/.test(text),
+      hasTelegram: /t\\.me\\/aweing/.test(text),
+      hasChannel: /t\\.me\\/Mumdthoughts/.test(text)
+    };
+    closeSettings();
+    return out;
+  })()`).catch((e) => ({ err: String(e && e.message || e) }));
+  add('about section shows the developer links',
+    about.visible && about.github && about.telegram && about.channel && about.email &&
+      about.hasName && about.hasGithub && about.hasTelegram && about.hasChannel,
+    JSON.stringify(about));
+
   /* ---- 3. second tab gets a different partition */
   trace('check 3: second tab');
   await ui.executeJavaScript(`document.getElementById('newtab-btn').click()`);
@@ -135,7 +161,7 @@ async function run(win) {
   add('tabs use separate sessions', two.partition && first && two.partition !== first.partition,
     `${first && first.partition} | ${two.partition}`);
 
-  /* ---- 4. navigation works (through proxy) */
+  /* ---- 4. navigation works with the active proxy setting */
   trace('check 4: navigation');
   await ui.executeJavaScript(`
     (() => {
