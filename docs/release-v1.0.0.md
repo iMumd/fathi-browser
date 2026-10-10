@@ -35,8 +35,13 @@ and Security, Open Anyway.
 
 ## Notes
 
+The proxy is unset by default. Add an entry under Settings, Proxy when needed.
+
 The Linux archive is a portable directory build. Extract it and run `fathi`.
 AppImage and deb packages can be produced on Ubuntu with `npm run dist:linux`.
+
+The Windows and macOS builds are unsigned. SmartScreen or Gatekeeper may show
+a warning on first launch.
 
 ## About
 
