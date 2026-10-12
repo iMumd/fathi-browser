@@ -7,10 +7,10 @@ identity in every tab.
 
 - A distinct and consistent fingerprint per tab, covering user agent, screen,
   hardware, WebGL, canvas, audio, timezone, and network details.
-- In memory sessions. Nothing survives a closed tab or a restart.
+- Sessions live in memory. Nothing survives a closed tab or a restart.
 - Full request flow capture with export to HAR 1.2, XML, JSON, and CSV.
 - Request inspector with timing, size, cache, and security findings.
-- In browser interception with edit, forward, and drop.
+- Request interception with edit, forward, and drop.
 - Code generation for cURL, Python, PHP, Node, PowerShell, Go, and raw HTTP.
 - Proxy control per session, with a Burp Suite preset and optional PortSwigger
   certificate trust.
@@ -29,9 +29,6 @@ identity in every tab.
 | macOS Intel | Fathi-1.0.0-mac-x64.zip |
 | macOS Apple silicon | Fathi-1.0.0-mac-arm64.zip |
 | Source | fathi-browser-1.0.0-source.zip |
-
-The macOS builds are unsigned. On first launch, use System Settings, Privacy
-and Security, Open Anyway.
 
 ## Notes
 
