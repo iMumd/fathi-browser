@@ -156,9 +156,6 @@ async function onMessage(wc, method, params) {
     const overhead = ['dns', 'connect', 'ssl', 'send', 'wait', 'blocked']
       .reduce((n, k) => n + (rec.timing[k] > 0 ? rec.timing[k] : 0), 0);
     rec.timing.receive = Math.max(0, Math.round(rec.timing.total - overhead));
-    if (/^(Document|XHR|Fetch|Script|Stylesheet|Other)$/i.test(rec.resourceType)) {
-      fetchBody(wc, rec).catch(() => {});
-    }
     scheduleFlush();
     return;
   }
@@ -275,29 +272,8 @@ function trimTotal() {
   }
 }
 
-async function fetchBody(wc, rec) {
-  if (rec.failed || rec.body != null) return;
-  const mime = String(rec.mimeType || '').toLowerCase();
-  if (/^(image|audio|video|font)\//.test(mime)) return;
-  if (/octet-stream|zip|pdf|protobuf/.test(mime)) return;
-  const size = rec.size || rec.encodedSize || 0;
-  if (size > 1024 * 1024) return;
-  try {
-    const res = await wc.debugger.sendCommand('Network.getResponseBody', { requestId: rec.requestId });
-    if (!res) return;
-    let text = res.base64Encoded
-      ? Buffer.from(res.body || '', 'base64').toString('utf8')
-      : String(res.body || '');
-    if (text.length > MAX_BODY) {
-      text = text.slice(0, MAX_BODY);
-      rec.bodyTruncated = true;
-    }
-    rec.body = text;
-    rec.size = rec.size || Buffer.byteLength(text);
-    const t = tabs.get(wc.id);
-    if (t) t.dirty = true;
-    scheduleFlush();
-  } catch {}
+async function fetchBody() {
+  // Superseded by ensureBody(), which runs on demand from detail().
 }
 
 /* --------------------------------------------------------------- timings */
@@ -419,6 +395,12 @@ function stats(wcId, all) {
 
 /* ----------------------------------------------------------------- export */
 
+/* Only records the renderer has not seen yet are pushed, and the body is no
+   longer fetched automatically. Both changes matter: the old flush serialised
+   up to 400 summaries per tab every 220 ms during a page load, which was the
+   single largest source of UI stalls. Bodies are fetched on demand from
+   detail(). */
+
 function scheduleFlush() {
   if (flushTimer) return;
   flushTimer = setTimeout(() => {
@@ -426,12 +408,50 @@ function scheduleFlush() {
     for (const t of tabs.values()) {
       if (!t.dirty) continue;
       t.dirty = false;
+      const fresh = [];
+      for (const rec of t.reqs.values()) {
+        if (rec.sent) continue;
+        rec.sent = true;
+        fresh.push(summary(rec));
+      }
+      if (!fresh.length) continue;
       send('fathi:net:batch', {
         wcId: t.wc.id,
-        records: listSummaries(t.wc.id).slice(-400)
+        records: fresh,
+        total: t.reqs.size
       });
     }
-  }, 220);
+  }, 260);
+}
+
+/** Fetch a response body the first time someone actually looks at it. */
+async function ensureBody(wcId, rec) {
+  if (!rec || rec.done === false) return false;
+  if (rec.body != null || rec.bodyFailed) return true;
+  const wc = (tabs.get(wcId) || {}).wc;
+  if (!wc || wc.isDestroyed() || !wc.debugger.isAttached()) return false;
+  const mime = String(rec.mimeType || '').toLowerCase();
+  if (/^(image|audio|video|font)\//.test(mime)) { rec.bodyFailed = true; return false; }
+  if (/octet-stream|zip|pdf|protobuf/.test(mime)) { rec.bodyFailed = true; return false; }
+  const size = rec.size || rec.encodedSize || 0;
+  if (size > 2 * 1024 * 1024) { rec.bodyFailed = true; return false; }
+  try {
+    const res = await wc.debugger.sendCommand('Network.getResponseBody', { requestId: rec.requestId });
+    if (!res) { rec.bodyFailed = true; return false; }
+    let text = res.base64Encoded
+      ? Buffer.from(res.body || '', 'base64').toString('utf8')
+      : String(res.body || '');
+    if (text.length > MAX_BODY) {
+      text = text.slice(0, MAX_BODY);
+      rec.bodyTruncated = true;
+    }
+    rec.body = text;
+    if (!rec.size) rec.size = Buffer.byteLength(text);
+    return true;
+  } catch {
+    rec.bodyFailed = true;
+    return false;
+  }
 }
 
 function queryString(url) {
@@ -632,10 +652,14 @@ async function save(opts = {}) {
   return { ok: true, path: res.filePath, bytes: Buffer.byteLength(content), format };
 }
 
-function detail({ wcId, id } = {}) {
+async function detail({ wcId, id } = {}) {
   const t = tabs.get(wcId);
   if (!t) return null;
-  for (const rec of t.reqs.values()) if (rec.id === id) return full(rec);
+  for (const rec of t.reqs.values()) {
+    if (rec.id !== id) continue;
+    await ensureBody(wcId, rec);
+    return full(rec);
+  }
   return null;
 }
 

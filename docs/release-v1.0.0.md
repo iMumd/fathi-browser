@@ -1,4 +1,4 @@
-# Fathi 1.0.0
+﻿# Fathi 1.0.0
 
 The first public release of Fathi, a private desktop browser with a separate
 identity in every tab.
@@ -27,7 +27,6 @@ identity in every tab.
 | Windows portable | Fathi-Portable-1.0.0.exe |
 | Linux x64 | Fathi-1.0.0-linux-x64.tar.gz |
 | macOS Intel | Fathi-1.0.0-mac-x64.zip |
-| macOS Apple silicon | Fathi-1.0.0-mac-arm64.zip |
 | Source | fathi-browser-1.0.0-source.zip |
 
 ## Notes

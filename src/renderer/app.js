@@ -305,6 +305,7 @@ function applyTabLayout(tab) {
     wv.style.left = '';
     wv.style.top = '';
     wv.style.transform = '';
+    if (tab.wcId) window.api.device.emulate(tab.wcId, { width: view.clientWidth, height: view.clientHeight });
     return;
   }
 
@@ -321,6 +322,7 @@ function applyTabLayout(tab) {
   wv.style.left = '50%';
   wv.style.top = '50%';
   wv.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  if (tab.wcId) window.api.device.emulate(tab.wcId, { width: view.clientWidth, height: view.clientHeight });
 }
 
 function activate(id) {
@@ -537,16 +539,7 @@ $('#titlebar').addEventListener('dblclick', (e) => {
   window.api.win.toggleMaximize();
 });
 
-/* global shortcuts (when UI has focus) */
-document.addEventListener('keydown', (e) => {
-  const ctrl = e.ctrlKey || e.metaKey;
-  if (ctrl && e.key.toLowerCase() === 't') { e.preventDefault(); createTab(); }
-  else if (ctrl && e.key.toLowerCase() === 'w') { e.preventDefault(); if (activeTab()) closeTab(state.activeId); }
-  else if (ctrl && e.key.toLowerCase() === 'l') { e.preventDefault(); omnibox.focus(); }
-  else if (ctrl && e.key.toLowerCase() === 'r') { e.preventDefault(); const x = activeTab(); if (x) x.wv.reload(); }
-  else if (ctrl && e.key.toLowerCase() === 'd') { e.preventDefault(); openSettings('fingerprint'); }
-  else if (e.key === 'Escape') { closeDevicePopover(); if (!$('#settings-overlay').classList.contains('hidden')) closeSettings(); }
-});
+/* Global shortcuts are registered further down, from the user's shortcut map. */
 
 /* ------------------------------------------------------------ device menu */
 
@@ -642,7 +635,7 @@ document.addEventListener('mousedown', (e) => {
 
 /* -------------------------------------------------- flow + dev drawer */
 
-const ix = { enabled: false, items: [], current: null, filter: '' };
+const ix = { enabled: false, items: [], current: null, filter: '', view: 'request' };
 
 const flow = {
   wcId: null,
@@ -902,8 +895,7 @@ function codeFor(rec, lang) {
 
 /* ------------------------------------------------------------- intercept */
 
-function ixUpdateChrome() {
-  const count = ix.items.length;
+function ixUpdateChrome() {  const count = ix.items.length;
   const chip = $('#chip-intercept');
   const badge = $('#chip-intercept-count');
   if (badge) {
@@ -935,29 +927,119 @@ function ixRenderList() {
     box.innerHTML = `<div class="ix-empty">${esc(t('intercept.empty'))}</div>`;
     return;
   }
-  box.innerHTML = ix.items.map((r) => `
+  const needle = String(ix.filter || '').trim().toLowerCase();
+  const list = needle
+    ? ix.items.filter((r) => `${r.method} ${r.url} ${r.resourceType}`.toLowerCase().includes(needle))
+    : ix.items;
+  box.innerHTML = list.map((r) => `
     <button class="ix-item ${ix.current === r.id ? 'active' : ''}" data-ix="${esc(r.id)}">
       <span class="ix-m">${esc(r.method)}</span>
-      <span class="ix-u" title="${esc(r.url)}">${esc(prettyUrl(r.url))}</span>
-      <span class="ix-t">${esc(r.resourceType || '')}</span>
-    </button>`).join('');
+      <span class="ix-u" title="${esc(r.url)}">${esc(r.url)}</span>
+      <span class="ix-t">${esc(r.resourceType || '')}${r.hasResponse ? ' · R' : ''}</span>
+    </button>`).join('') || `<div class="ix-empty">${esc(t('intercept.empty'))}</div>`;
   box.querySelectorAll('[data-ix]').forEach((b) => {
     b.addEventListener('click', () => ixOpenItem(b.dataset.ix));
   });
 }
 
-function ixOpenItem(id) {
+/* ---- structured header editors ---- */
+
+function ixHeaderRow(name = '', value = '') {
+  const row = document.createElement('div');
+  row.className = 'ix-hrow';
+  row.innerHTML = `
+    <input class="hname" type="text" spellcheck="false" dir="ltr" placeholder="Header" />
+    <input class="hval" type="text" spellcheck="false" dir="ltr" placeholder="Value" />
+    <button class="hdel" title="${esc(t('mr.remove'))}" aria-label="Remove">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>`;
+  row.querySelector('.hname').value = name;
+  row.querySelector('.hval').value = value;
+  row.querySelector('.hdel').addEventListener('click', () => row.remove());
+  return row;
+}
+
+function ixRenderHeaderRows(headers) {
+  const box = $('#ix-headers-rows');
+  if (!box) return;
+  box.innerHTML = '';
+  const pairs = Object.entries(headers || {});
+  if (!pairs.length) box.appendChild(ixHeaderRow());
+  for (const [name, value] of pairs) {
+    box.appendChild(ixHeaderRow(name, Array.isArray(value) ? value.join(', ') : String(value)));
+  }
+}
+
+function ixHeaderPairsFromRows() {
+  const out = [];
+  $$('#ix-headers-rows .ix-hrow').forEach((row) => {
+    const name = row.querySelector('.hname').value.trim();
+    const value = row.querySelector('.hval').value;
+    if (name) out.push({ name, value });
+  });
+  return out;
+}
+
+function prettyJson(text) {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return null;
+  }
+}
+
+function ixFormatBody() {
+  const box = $('#ix-body-text');
+  if (!box) return;
+  const pretty = prettyJson(box.value);
+  if (pretty == null) return toast(t('intercept.pretty'), 'err');
+  box.value = pretty;
+  box.classList.add('mono-wrap');
+}
+
+function ixFormatResponse() {
+  const el = $('#ix-resp-body');
+  if (!el) return;
+  const pretty = prettyJson(el.textContent || '');
+  if (pretty == null) return;
+  el.textContent = pretty;
+}
+
+function ixShowTab(which) {
+  const isResponse = which === 'response';
+  $('#ix-request-view').classList.toggle('hidden', isResponse);
+  $('#ix-response-view').classList.toggle('hidden', !isResponse);
+  $$('.ix-name').forEach((b) => b.classList.toggle('active', b.dataset.ixTab === which));
+  ix.view = which;
+}
+
+async function ixOpenItem(id) {
   const rec = ix.items.find((r) => r.id === id);
   if (!rec) return;
   ix.current = id;
   $('#ix-list').classList.add('hidden');
   $('#ix-detail').classList.remove('hidden');
+  $('#ix-repeat-out')?.remove();
   $('#ix-url').value = rec.url;
   $('#ix-method').value = rec.method;
   $('#ix-type').value = rec.resourceType || '';
-  $('#ix-headers').value = Object.entries(rec.headers || {}).map(([k, v]) => `${k}: ${v}`).join('\n');
+  ixRenderHeaderRows(rec.headers || {});
   $('#ix-body-text').value = rec.postData || '';
+  $('#ix-body-text').classList.toggle('mono-wrap', /\n/.test(rec.postData || ''));
   $('#ix-body-field').classList.toggle('hidden', /^(GET|HEAD)$/i.test(rec.method));
+  const hint = $('#ix-body-hint');
+  if (hint) hint.textContent = t('intercept.bodyHint');
+
+  const respHeaders = $('#ix-resp-headers');
+  if (respHeaders) {
+    respHeaders.textContent = rec.responseHeaders
+      ? Object.entries(rec.responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')
+      : t('intercept.repeatEmpty');
+  }
+  const respBody = $('#ix-resp-body');
+  if (respBody) respBody.textContent = rec.hasResponse ? '' : t('intercept.repeatEmpty');
+
+  ixShowTab('request');
   ixRenderList();
 }
 
@@ -982,19 +1064,13 @@ function ixParseHeaders(text) {
   return out;
 }
 
-function ixHeadersObject() {
-  const out = {};
-  for (const h of ixParseHeaders($('#ix-headers').value)) out[h.name] = h.value;
-  return out;
-}
-
 function ixCurrentRecord() {
   const rec = ix.items.find((r) => r.id === ix.current);
   if (!rec) return null;
   return {
     url: $('#ix-url').value.trim() || rec.url,
     method: ($('#ix-method').value.trim() || rec.method).toUpperCase(),
-    requestHeaders: ixHeadersObject(),
+    requestHeaders: Object.fromEntries(ixHeaderPairsFromRows().map((h) => [h.name, h.value])),
     postData: $('#ix-body-text').value || ''
   };
 }
@@ -1007,12 +1083,63 @@ async function ixResolve(action) {
     action,
     url: $('#ix-url').value.trim(),
     method: $('#ix-method').value.trim().toUpperCase(),
-    headers: ixParseHeaders($('#ix-headers').value),
+    headers: ixHeaderPairsFromRows(),
     postData: $('#ix-body-text').value
   };
   const res = await window.api.intercept.resolve(payload);
   if (!res || !res.ok) toast((res && res.error) || t('proxy.error'), 'err');
   ixRemove(rec.id);
+}
+
+/* ------------------------------------------------ Repeat (edit and resend) */
+
+async function ixRepeat() {
+  const rec = ixCurrentRecord();
+  if (!rec) return;
+  const btn = $('#ix-repeat');
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = t('intercept.repeating');
+  try {
+    const res = await window.api.intercept.repeat({
+      url: rec.url,
+      method: rec.method,
+      headers: rec.requestHeaders,
+      postData: rec.postData
+    });
+    if (!res || !res.ok) {
+      toast((res && res.error) || t('proxy.error'), 'err');
+      return;
+    }
+    ixRenderRepeat(res.response);
+    ixShowTab('response');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+function ixRenderRepeat(response) {
+  const detail = $('#ix-detail');
+  if (!detail) return;
+  $('#ix-repeat-out')?.remove();
+  const r = response || {};
+  const headers = Object.entries(r.headers || {}).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n');
+  const pretty = r.body ? prettyJson(r.body) : null;
+  const box = document.createElement('div');
+  box.id = 'ix-repeat-out';
+  box.innerHTML = `
+    <div class="net-head">
+      <span class="net-status ${statusCls(r.status)}">${r.status || 'ERR'}</span>
+      <div class="net-title"><b>${esc(r.statusText || '')}</b> ${r.mimeType ? esc(r.mimeType) : ''}</div>
+      <span class="muted small">${fmtMs(r.time)}</span>
+    </div>
+    <h4>${esc(t('intercept.repeatTitle'))}</h4>
+    <div class="hdr-block">${esc(headers || 'n/a')}</div>
+    ${r.body ? `<pre class="body-pre">${esc(pretty || r.body)}</pre>` : `<div class="ix-empty">${esc(t('intercept.repeatEmpty'))}</div>`}
+    ${r.truncated ? `<div class="net-note info">${esc(t('flow.truncated'))}</div>` : ''}`;
+  detail.appendChild(box);
+  box.scrollIntoView({ block: 'nearest' });
 }
 
 function ixRemove(id) {
@@ -1449,6 +1576,15 @@ $('#ix-toggle').addEventListener('click', async () => {
 
 $('#ix-forward').addEventListener('click', () => ixResolve('continue'));
 $('#ix-drop').addEventListener('click', () => ixResolve('drop'));
+$('#ix-repeat').addEventListener('click', ixRepeat);
+$('#ix-header-add')?.addEventListener('click', () => {
+  $('#ix-headers-rows')?.appendChild(ixHeaderRow());
+});
+$('#ix-body-format')?.addEventListener('click', ixFormatBody);
+$('#ix-resp-format')?.addEventListener('click', ixFormatResponse);
+$$('.ix-name').forEach((b) => {
+  b.addEventListener('click', () => ixShowTab(b.dataset.ixTab));
+});
 
 $('#ix-code-copy').addEventListener('click', () => {
   const rec = ixCurrentRecord();
@@ -1471,6 +1607,7 @@ let ixFilterTimer = null;
 $('#ix-filter').addEventListener('input', (e) => {
   const value = e.target.value;
   ix.filter = value;
+  ixRenderList();
   clearTimeout(ixFilterTimer);
   ixFilterTimer = setTimeout(() => { window.api.intercept.filter(value); }, 350);
 });
@@ -1491,9 +1628,388 @@ $('#net-scope').addEventListener('change', (e) => {
 $('#net-save').addEventListener('click', flowSave);
 $('#net-clear').addEventListener('click', flowClear);
 
+/* Escape closes the drawer from anywhere. */
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !$('#ix-drawer').classList.contains('hidden')) devClose();
 });
+
+/* ------------------------------------------------------------- settings UI */
+
+/* ======================================================================
+ * Keyboard shortcuts
+ * ==================================================================== */
+
+const SHORTCUT_DEFS = [
+  ['newTab', 'sc.newTab'],
+  ['closeTab', 'sc.closeTab'],
+  ['reopenTab', 'sc.reopenTab'],
+  ['nextTab', 'sc.nextTab'],
+  ['prevTab', 'sc.prevTab'],
+  ['focusAddress', 'sc.focusAddress'],
+  ['reload', 'sc.reload'],
+  ['hardReload', 'sc.hardReload'],
+  ['back', 'sc.back'],
+  ['forward', 'sc.forward'],
+  ['toggleDevice', 'sc.toggleDevice'],
+  ['toggleProxy', 'sc.toggleProxy'],
+  ['toggleInterceptor', 'sc.toggleInterceptor'],
+  ['openGuide', 'sc.openGuide'],
+  ['settings', 'sc.settings'],
+  ['fingerprint', 'sc.fingerprint'],
+  ['zoomIn', 'sc.zoomIn'],
+  ['zoomOut', 'sc.zoomOut'],
+  ['zoomReset', 'sc.zoomReset'],
+  ['quit', 'sc.quit']
+];
+
+/** Build the canonical "Ctrl+Shift+K" form from a keyboard event. */
+function comboFromEvent(e) {
+  const parts = [];
+  if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  let key = e.key;
+  if (key === ' ' ) key = 'Space';
+  else if (key === '+') key = '=';
+  else if (key.length === 1) key = key.toUpperCase();
+  else if (key === 'Escape' || key === 'Enter' || key === 'Tab' || key === 'Backspace') key = '';
+  else if (/^Arrow/.test(key)) key = key.slice(5);
+  else if (/^(Control|Meta|Alt|Shift)$/.test(key)) return '';
+  if (!key) return '';
+  parts.push(key);
+  return parts.join('+');
+}
+
+function shortcuts() {
+  return (state.settings && state.settings.shortcuts) || {};
+}
+
+function matchCombo(e, name) {
+  const want = shortcuts()[name];
+  if (!want) return false;
+  return comboFromEvent(e) === want;
+}
+
+function shortcutOwner(combo, except) {
+  for (const [name, key] of SHORTCUT_DEFS) {
+    if (name === except) continue;
+    if (shortcuts()[name] === combo) return key;
+  }
+  return null;
+}
+
+function zoomBy(delta) {
+  const tab = activeTab();
+  if (!tab) return;
+  try {
+    const cur = tab.wv.getZoomFactor();
+    const next = Math.max(0.25, Math.min(5, Number((cur + delta).toFixed(2))));
+    tab.wv.setZoomFactor(next);
+    toast(String(Math.round(next * 100)) + '%', '');
+  } catch {}
+}
+
+function zoomReset() {
+  const tab = activeTab();
+  if (!tab) return;
+  try { tab.wv.setZoomFactor(1); } catch {}
+}
+
+function hardReload() {
+  const tab = activeTab();
+  if (!tab) return;
+  try { tab.wv.reloadIgnoringCache(); } catch { try { tab.wv.reload(); } catch {} }
+}
+
+function cycleDevice() {
+  const list = [state.desktop, ...state.devices];
+  const tab = activeTab();
+  const curId = (tab && tab.fp && tab.fp.device && tab.fp.device.id) || 'desktop';
+  const idx = list.findIndex((d) => d.id === curId);
+  const next = list[(idx + 1) % list.length];
+  if (next) changeDevice(next);
+}
+
+function cycleProxy() {
+  const p = (state.settings && state.settings.proxy) || {};
+  const enabled = !p.enabled;
+  window.api.proxy.set({ enabled }).then((res) => {
+    if (res && res.ok) {
+      state.settings.proxy = res.config;
+      updateChips();
+      toast(enabled ? t('proxy.online') : t('proxy.direct'), 'ok');
+    }
+  });
+}
+
+async function runShortcut(name) {
+  const tab = activeTab();
+  switch (name) {
+    case 'newTab': return createTab();
+    case 'closeTab': if (tab) closeTab(tab.id); return;
+    case 'reopenTab': return createTab();
+    case 'nextTab': return cycleTab(1);
+    case 'prevTab': return cycleTab(-1);
+    case 'focusAddress': omnibox.focus(); omnibox.select(); return;
+    case 'reload': if (tab) { try { tab.wv.reload(); } catch {} } return;
+    case 'hardReload': return hardReload();
+    case 'back': if (tab) { try { tab.wv.goBack(); } catch {} } return;
+    case 'forward': if (tab) { try { tab.wv.goForward(); } catch {} } return;
+    case 'toggleDevice': return cycleDevice();
+    case 'toggleProxy': return cycleProxy();
+    case 'toggleInterceptor': return toggleInterceptor();
+    case 'openGuide': return openGuide();
+    case 'settings': return openSettings();
+    case 'fingerprint': return openSettings('fingerprint');
+    case 'zoomIn': return zoomBy(0.1);
+    case 'zoomOut': return zoomBy(-0.1);
+    case 'zoomReset': return zoomReset();
+    case 'quit': return window.api.app.quit();
+    default: return;
+  }
+}
+
+function cycleTab(delta) {
+  if (state.tabs.length < 2) return;
+  const idx = state.tabs.findIndex((x) => x.id === state.activeId);
+  const next = (idx + delta + state.tabs.length) % state.tabs.length;
+  activate(state.tabs[next].id);
+}
+
+async function toggleInterceptor() {
+  const res = await window.api.intercept.set(!ix.enabled);
+  if (res && res.ok) {
+    ix.enabled = !!res.state.enabled;
+    ixUpdateChrome();
+    if (ix.enabled) devOpen('intercept');
+    toast(ix.enabled ? t('intercept.on') : t('intercept.off'), 'ok');
+  }
+}
+
+/* Global shortcut handling. Page input wins first, so typing a shortcut inside
+   a text field never swallows the keystroke. */
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (isTypingTarget(e.target) && !(e.ctrlKey || e.metaKey)) return;
+  for (const [name] of SHORTCUT_DEFS) {
+    if (matchCombo(e, name)) {
+      e.preventDefault();
+      runShortcut(name);
+      return;
+    }
+  }
+});
+
+/* ======================================================================
+ * Guide
+ * ==================================================================== */
+
+function openGuide() {
+  const body = $('#guide-body');
+  if (body) body.innerHTML = guideHtml();
+  $('#guide-overlay').classList.remove('hidden');
+}
+
+function closeGuide() {
+  $('#guide-overlay').classList.add('hidden');
+}
+
+function comboHtml(combo) {
+  return String(combo || '').split('+').filter(Boolean)
+    .map((k) => `<i>${esc(k)}</i>`).join('');
+}
+
+function guideHtml() {
+  const sc = shortcuts();
+  const shortcutRows = SHORTCUT_DEFS.slice(0, 12).map(([name, key]) => `
+    <div class="kbd-row"><span>${esc(t(key))}</span><span class="kbd-combo">${comboHtml(sc[name])}</span></div>`).join('');
+  const steps = [
+    ['guide.step1Title', 'guide.step1'],
+    ['guide.step2Title', 'guide.step2'],
+    ['guide.step3Title', 'guide.step3']
+  ].map(([title, text], i) => `
+    <div class="guide-step">
+      <span class="g-num">${i + 1}</span>
+      <div><b>${esc(t(title))}</b><span>${esc(t(text))}</span></div>
+    </div>`).join('');
+
+  return `
+    <div class="guide-grid">
+      <div class="card">
+        <h3>${esc(t('guide.shortcutsTitle'))}</h3>
+        <p class="hint">${esc(t('guide.shortcutsHint'))}</p>
+        <div class="kbd-table">${shortcutRows}</div>
+      </div>
+      <div class="card">
+        <h3>${esc(t('guide.flowTitle'))}</h3>
+        <p class="hint">${esc(t('guide.flowHint'))}</p>
+        <h3>${esc(t('guide.interceptTitle'))}</h3>
+        <p class="hint">${esc(t('guide.interceptHint'))}</p>
+      </div>
+      <div class="card">
+        <h3>${esc(t('guide.proxyTitle'))}</h3>
+        <p class="hint">${esc(t('guide.proxyHint'))}</p>
+      </div>
+      <div class="card">
+        <h3>${esc(t('guide.rulesTitle'))}</h3>
+        <p class="hint">${esc(t('guide.rulesHint'))}</p>
+      </div>
+      <div class="card guide-wide">
+        <h3>${esc(t('guide.title'))}</h3>
+        ${steps}
+      </div>
+    </div>`;
+}
+
+/* ======================================================================
+ * App menu (corner Fathi icon)
+ * ==================================================================== */
+
+function openAppMenu() {
+  const menu = $('#app-menu');
+  const btn = $('#app-menu-btn');
+  if (!menu || !btn) return;
+  const r = btn.getBoundingClientRect();
+  menu.classList.remove('hidden');
+  const width = menu.offsetWidth || 220;
+  const height = menu.offsetHeight || 300;
+  const left = Math.min(Math.max(8, r.left - width + r.width), window.innerWidth - width - 8);
+  const top = Math.min(r.bottom + 6, window.innerHeight - height - 8);
+  menu.style.left = left + 'px';
+  menu.style.top = Math.max(8, top) + 'px';
+  const version = $('#am-version');
+  if (version && state.info) version.textContent = 'v' + state.info.version;
+}
+
+function closeAppMenu() {
+  $('#app-menu')?.classList.add('hidden');
+}
+
+/* ======================================================================
+ * Match and Replace
+ * ==================================================================== */
+
+function mrRules() {
+  return (state.settings && state.settings.matchReplace) || [];
+}
+
+function mrRuleHtml(rule, index) {
+  const targets = [
+    'requestHeader', 'requestBody', 'responseHeader', 'responseBody'
+  ].map((id) => `<option value="${id}" ${rule.target === id ? 'selected' : ''}>${esc(t('mr.target.' + id))}</option>`).join('');
+  return `
+    <div class="mr-rule" data-mr="${esc(rule.id)}">
+      <div class="mr-head">
+        <b>${esc(t('mr.ruleN', { n: index + 1 }))}</b>
+        <button class="mr-del" data-mr-del="${esc(rule.id)}">${esc(t('mr.remove'))}</button>
+      </div>
+      <div class="mr-row">
+        <label>${esc(t('mr.target'))}</label>
+        <select class="mr-target">${targets}</select>
+      </div>
+      <div class="mr-row">
+        <label>${esc(t('mr.match'))}</label>
+        <input type="text" class="mr-match" value="${esc(rule.match || '')}" dir="ltr" />
+      </div>
+      <div class="mr-row">
+        <label>${esc(t('mr.replace'))}</label>
+        <input type="text" class="mr-replace" value="${esc(rule.replace || '')}" dir="ltr" />
+      </div>
+      <div class="mr-row">
+        <label>${esc(t('mr.enabled'))}</label>
+        <div class="mr-check">
+          <label><input type="checkbox" class="mr-regex" ${rule.regex ? 'checked' : ''} /> ${esc(t('mr.regex'))}</label>
+          <label><input type="checkbox" class="mr-case" ${rule.caseSensitive ? 'checked' : ''} /> ${esc(t('mr.caseSensitive'))}</label>
+          <label><input type="checkbox" class="mr-on" ${rule.enabled !== false ? 'checked' : ''} /> ${esc(t('mr.enabled'))}</label>
+        </div>
+      </div>
+    </div>`;
+}
+
+function collectRules() {
+  const out = [];
+  $$('#mr-list .mr-rule').forEach((el, i) => {
+    out.push({
+      id: el.dataset.mr || ('r' + i),
+      enabled: el.querySelector('.mr-on').checked,
+      target: el.querySelector('.mr-target').value,
+      match: el.querySelector('.mr-match').value,
+      replace: el.querySelector('.mr-replace').value,
+      regex: el.querySelector('.mr-regex').checked,
+      caseSensitive: el.querySelector('.mr-case').checked
+    });
+  });
+  return out.filter((r) => r.match);
+}
+
+async function saveRules() {
+  const res = await window.api.rules.save(collectRules());
+  if (res && res.ok) {
+    state.settings.matchReplace = res.rules;
+    toast(t('mr.saved'), 'ok');
+    renderSection('intercept');
+  } else if (res && res.error) {
+    toast(res.error, 'err');
+  }
+}
+
+function newRuleId() {
+  return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function renderMatchReplaceCard() {
+  const rules = mrRules();
+  const list = rules.length
+    ? rules.map((r, i) => mrRuleHtml(r, i)).join('')
+    : `<div class="mr-empty">${esc(t('mr.empty'))}</div>`;
+  return `
+    <div class="card">
+      <h3>${esc(t('mr.title'))}</h3>
+      <p class="hint">${esc(t('mr.hint'))}</p>
+      <div id="mr-list">${list}</div>
+      <div class="btn-row">
+        <button class="btn sm" id="mr-add">${esc(t('mr.add'))}</button>
+        <button class="btn sm primary" id="mr-save">${esc(t('toast.saved'))}</button>
+      </div>
+    </div>`;
+}
+
+function wireMatchReplaceCard() {
+  const add = $('#mr-add');
+  if (add) {
+    add.addEventListener('click', () => {
+      const list = $('#mr-list');
+      if (!list) return;
+      const empty = list.querySelector('.mr-empty');
+      if (empty) empty.remove();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = mrRuleHtml({
+        id: newRuleId(), enabled: true, target: 'responseBody', match: '', replace: '', regex: false
+      }, list.querySelectorAll('.mr-rule').length);
+      list.appendChild(tmp.firstElementChild);
+      wireRuleDelete();
+    });
+  }
+  const save = $('#mr-save');
+  if (save) save.addEventListener('click', saveRules);
+  wireRuleDelete();
+}
+
+function wireRuleDelete() {
+  $$('#mr-list [data-mr-del]').forEach((b) => {
+    if (b.dataset.wired) return;
+    b.dataset.wired = '1';
+    b.addEventListener('click', () => {
+      const el = b.closest('.mr-rule');
+      if (el) el.remove();
+    });
+  });
+}
 
 /* ------------------------------------------------------------- settings UI */
 
@@ -1966,6 +2482,115 @@ function renderSection(section) {
     return;
   }
 
+  if (section === 'intercept') {
+    const ixCfg = S.intercept || {};
+    body.innerHTML = `
+      <div class="card">
+        <h3>${esc(t('intercept.title'))}</h3>
+        <p class="hint">${esc(t('intercept.hint'))}</p>
+        <div class="row">
+          <div><label>${esc(t('intercept.enable'))}</label><div class="sub">${esc(t('intercept.enableSub'))}</div></div>
+          <div class="switch ${ixCfg.enabled ? 'on' : ''}" id="set-ix-toggle"></div>
+        </div>
+        <div class="field">
+          <label>${esc(t('intercept.filter'))}</label>
+          <input type="text" id="set-ix-filter" dir="ltr" spellcheck="false"
+                 placeholder="/api login" value="${esc(ixCfg.filter || '')}" />
+          <div class="sub">${esc(t('intercept.filterSub'))}</div>
+        </div>
+      </div>
+      ${renderMatchReplaceCard()}`;
+
+    $('#set-ix-toggle').addEventListener('click', async () => {
+      const res = await window.api.intercept.set(!ix.enabled);
+      if (!res || !res.ok) return;
+      ix.enabled = !!res.state.enabled;
+      ixUpdateChrome();
+      $('#set-ix-toggle').classList.toggle('on', ix.enabled);
+      toast(ix.enabled ? t('intercept.on') : t('intercept.off'), 'ok');
+    });
+
+    let setFilterTimer = null;
+    $('#set-ix-filter').addEventListener('input', (e) => {
+      const value = e.target.value;
+      clearTimeout(setFilterTimer);
+      setFilterTimer = setTimeout(async () => {
+        await window.api.intercept.filter(value);
+        ix.filter = value;
+        ixRenderList();
+      }, 350);
+    });
+
+    wireMatchReplaceCard();
+    return;
+  }
+
+  if (section === 'shortcuts') {
+    const sc = { ...(S.shortcuts || {}) };
+    body.innerHTML = `
+      <div class="card">
+        <h3>${esc(t('settings.shortcutsTitle'))}</h3>
+        <p class="hint">${esc(t('settings.shortcutsHint'))}</p>
+        <div class="sc-list">
+          ${SHORTCUT_DEFS.map(([name, key]) => `
+            <div class="sc-row">
+              <span class="sc-name">${esc(t(key))}</span>
+              <input class="sc-input" type="text" readonly dir="ltr"
+                     data-sc="${esc(name)}" value="${esc(sc[name] || '')}"
+                     placeholder="${esc(t('sc.recording'))}" />
+            </div>`).join('')}
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="sc-reset">${esc(t('settings.shortcutsReset'))}</button>
+          <button class="btn primary" id="sc-save">${esc(t('toast.saved'))}</button>
+        </div>
+      </div>`;
+
+    let recording = null;
+    $$('.sc-input').forEach((input) => {
+      input.addEventListener('focus', () => { input.value = ''; });
+      input.addEventListener('blur', () => {
+        if (!input.value) input.value = sc[input.dataset.sc] || '';
+      });
+      input.addEventListener('keydown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === 'Backspace') {
+          input.value = '';
+          sc[input.dataset.sc] = '';
+          return;
+        }
+        const combo = comboFromEvent(e);
+        if (!combo) return;
+        const owner = shortcutOwner(combo, input.dataset.sc);
+        if (owner) {
+          toast(t('sc.conflict', { name: t(owner) }), 'err');
+          return;
+        }
+        input.value = combo;
+        sc[input.dataset.sc] = combo;
+      });
+    });
+
+    $('#sc-reset').addEventListener('click', async () => {
+      const res = await window.api.settings.set({ shortcuts: {} });
+      if (res && res.ok) {
+        state.settings.shortcuts = (res.config && res.config.shortcuts) || {};
+        toast(t('toast.saved'), 'ok');
+        renderSection('shortcuts');
+      }
+    });
+
+    $('#sc-save').addEventListener('click', async () => {
+      const res = await window.api.settings.set({ shortcuts: sc });
+      if (res && res.ok) {
+        state.settings.shortcuts = (res.config && res.config.shortcuts) || sc;
+        toast(t('toast.saved'), 'ok');
+      }
+    });
+    return;
+  }
+
   /* ------------------------------- about ------------------------------- */
   const info = state.info || {};
   body.innerHTML = `
@@ -2222,6 +2847,9 @@ window.api.on('fathi:newtab:rotate', ({ wcId }) => {
   if (tab) rotateTab(tab.id);
 });
 
+window.api.on('fathi:newtab:guide', () => openGuide());
+window.api.on('fathi:newtab:shortcuts', () => openSettings('shortcuts'));
+
 window.api.on('fathi:focus-omnibox', () => { omnibox.focus(); omnibox.select(); });
 window.api.on('fathi:new-tab', () => createTab());
 window.api.on('fathi:close-tab', ({ wcId }) => {
@@ -2284,6 +2912,45 @@ window.addEventListener('resize', () => {
   const tab = activeTab();
   if (tab) applyTabLayout(tab);
   closeDevicePopover();
+});
+
+/* --------------------------------------------------- app menu and guide */
+
+$('#app-menu-btn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const menu = $('#app-menu');
+  if (menu && menu.classList.contains('hidden')) openAppMenu();
+  else closeAppMenu();
+});
+
+document.addEventListener('click', (e) => {
+  const menu = $('#app-menu');
+  if (menu && !menu.classList.contains('hidden') && !e.target.closest('#app-menu')) closeAppMenu();
+});
+window.addEventListener('blur', closeAppMenu);
+
+$('#am-guide')?.addEventListener('click', () => { closeAppMenu(); openGuide(); });
+$('#am-hotkeys')?.addEventListener('click', () => { closeAppMenu(); openSettings('shortcuts'); });
+$('#am-settings')?.addEventListener('click', () => { closeAppMenu(); openSettings(); });
+$('#am-about')?.addEventListener('click', () => { closeAppMenu(); openSettings('about'); });
+$('#am-github')?.addEventListener('click', () => { closeAppMenu(); window.api.openExternal('https://github.com/iMumd'); });
+$('#am-telegram')?.addEventListener('click', () => { closeAppMenu(); window.api.openExternal('https://t.me/aweing'); });
+$('#am-hide')?.addEventListener('click', () => { closeAppMenu(); window.api.win.hide(); });
+$('#am-quit')?.addEventListener('click', () => { closeAppMenu(); window.api.app.quit(); });
+
+$('#guide-close')?.addEventListener('click', closeGuide);
+$('#guide-overlay')?.addEventListener('click', (e) => {
+  if (e.target.id === 'guide-overlay') closeGuide();
+});
+$('#guide-settings')?.addEventListener('click', () => { closeGuide(); openSettings('shortcuts'); });
+
+window.api.on('fathi:menu:open', () => openAppMenu());
+
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const guide = $('#guide-overlay');
+  if (guide && !guide.classList.contains('hidden')) closeGuide();
+  closeAppMenu();
 });
 
 /* ------------------------------------------------------------------ boot */

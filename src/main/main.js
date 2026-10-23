@@ -16,6 +16,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
+const rewrite = require('./rewrite');
 
 /* ---------------------------------------------------- process hardening */
 
@@ -58,6 +59,7 @@ const network = require('./network');
 /* ----------------------------------------------------------------- state */
 
 let mainWindow = null;
+let lastViewport = { width: 1200, height: 700 };
 
 const fps = new Map();                 // fpId -> fingerprint
 const partitions = new Map();          // partition -> { ses, fp }
@@ -182,24 +184,36 @@ function recordForWebContents(wc) {
   return null;
 }
 
-/** Touch emulation + UA override for mobile presets (layout is CSS-driven). */
-async function applyDeviceEmulation(wc, fp) {
+/** Device emulation for mobile presets. Uses the native webContents API so we
+ *  never need a second debugger client (which froze tabs and fought with
+ *  DevTools). The renderer sends its viewport so the emulated screen can be
+ *  scaled and centred without a CSS transform on the webview. */
+function applyDeviceEmulation(wc, fp, viewport) {
   const dev = fp && fp.device;
-  if (!dev || !dev.mobile) return;
+  if (!wc || wc.isDestroyed()) return;
   try {
-    const dbg = wc.debugger;
-    if (!dbg.isAttached()) dbg.attach('1.3');
-    await dbg.sendCommand('Emulation.setTouchEmulationEnabled', {
-      enabled: true,
-      maxTouchPoints: dev.touch || 5
+    if (!dev || !dev.mobile) {
+      wc.disableDeviceEmulation();
+      return;
+    }
+    const vw = Math.max(120, Number(viewport && viewport.width) || 900);
+    const vh = Math.max(160, Number(viewport && viewport.height) || 700);
+    const pad = 34;
+    const scale = Math.max(0.2, Math.min((vw - pad) / dev.width, (vh - pad) / dev.height, 1));
+    wc.enableDeviceEmulation({
+      screenPosition: 'mobile',
+      screenSize: { width: dev.width, height: dev.height },
+      viewPosition: {
+        x: Math.max(0, Math.round((vw - dev.width * scale) / 2)),
+        y: Math.max(0, Math.round((vh - dev.height * scale) / 2))
+      },
+      deviceScaleFactor: dev.dpr || 1,
+      viewSize: { width: dev.width, height: dev.height },
+      scale
     });
-    await dbg.sendCommand('Emulation.setUserAgentOverride', {
-      userAgent: fp.ua,
-      acceptLanguage: (fp.languages || ['en-US']).join(','),
-      platform: fp.platform
-    });
+    if (fp.ua) wc.setUserAgent(fp.ua, (fp.languages || ['en-US']).join(','));
   } catch (e) {
-    // devtools already attached or target gone, non fatal
+    // Target already gone or emulation unsupported; the page still renders.
   }
 }
 
@@ -211,7 +225,7 @@ app.on('web-contents-created', (_event, wc) => {
 
   const rec = recordForWebContents(wc);
   if (rec && rec.fp && rec.fp.device && rec.fp.device.mobile) {
-    const apply = () => applyDeviceEmulation(wc, rec.fp);
+    const apply = () => applyDeviceEmulation(wc, rec.fp, lastViewport);
     wc.once('dom-ready', apply);
     wc.on('did-navigate', apply);
   }
@@ -449,6 +463,60 @@ ipcMain.handle('fathi:intercept:filter', (event, { filter } = {}) => {
   catch (e) { return fail(e); }
 });
 
+/* --- repeat: resend an edited request and return its response */
+ipcMain.handle('fathi:intercept:repeat', async (event, payload = {}) => {
+  try {
+    const res = await intercept.sendRequest(payload);
+    return res.ok ? ok({ response: res.response }) : fail(res.error);
+  } catch (e) { return fail(e); }
+});
+
+/* --- device emulation geometry from the renderer */
+ipcMain.handle('fathi:device:emulate', (event, { wcId, viewport } = {}) => {
+  try {
+    if (viewport) lastViewport = {
+      width: Number(viewport.width) || lastViewport.width,
+      height: Number(viewport.height) || lastViewport.height
+    };
+    const wc = webContents.fromId(Number(wcId));
+    if (!wc || wc.isDestroyed()) return ok({ applied: false });
+    const rec = recordForWebContents(wc);
+    if (rec && rec.fp) applyDeviceEmulation(wc, rec.fp, lastViewport);
+    return ok({ applied: true });
+  } catch (e) { return fail(e); }
+});
+
+/* --- match and replace rules */
+ipcMain.handle('fathi:rules:list', () => ok({ rules: settings.get().matchReplace || [] }));
+
+ipcMain.handle('fathi:rules:save', (event, { rules } = {}) => {
+  try {
+    const clean = (Array.isArray(rules) ? rules : []).map((r) => ({
+      id: String(r && r.id || rewrite.newId()),
+      enabled: !(r && r.enabled === false),
+      target: rewrite.TARGETS.has(r && r.target) ? r.target : 'responseBody',
+      match: String((r && r.match) || ''),
+      replace: String((r && r.replace) || ''),
+      regex: !!(r && r.regex),
+      caseSensitive: !!(r && r.caseSensitive)
+    })).filter((r) => r.match);
+    const cfg = settings.save({ matchReplace: clean });
+    if (mainWindow) mainWindow.webContents.send('fathi:settings:changed', cfg);
+    return ok({ rules: cfg.matchReplace });
+  } catch (e) { return fail(e); }
+});
+
+/* --- window / app actions for the corner menu */
+ipcMain.handle('fathi:win:hide', () => {
+  try { if (mainWindow) mainWindow.minimize(); } catch {}
+  return ok({});
+});
+
+ipcMain.handle('fathi:app:quit', () => {
+  try { app.quit(); } catch {}
+  return ok({});
+});
+
 /* --- flow recorder (network log / HAR export) */
 ipcMain.handle('fathi:net:list', (event, { wcId, all } = {}) => {
   try {
@@ -459,8 +527,8 @@ ipcMain.handle('fathi:net:list', (event, { wcId, all } = {}) => {
   } catch (e) { return fail(e); }
 });
 
-ipcMain.handle('fathi:net:detail', (event, { wcId, id } = {}) => {
-  const record = network.detail({ wcId, id });
+ipcMain.handle('fathi:net:detail', async (event, { wcId, id } = {}) => {
+  const record = await network.detail({ wcId, id });
   return record ? ok({ record }) : fail('request not found');
 });
 
@@ -609,6 +677,16 @@ ipcMain.handle('fathi:newtab:rotate', (event) => {
 
 ipcMain.handle('fathi:newtab:focus', (event) => {
   if (mainWindow) mainWindow.webContents.send('fathi:focus-omnibox');
+  return ok({});
+});
+
+ipcMain.handle('fathi:newtab:guide', (event) => {
+  if (mainWindow) mainWindow.webContents.send('fathi:newtab:guide', { wcId: event.sender.id });
+  return ok({});
+});
+
+ipcMain.handle('fathi:newtab:shortcuts', (event) => {
+  if (mainWindow) mainWindow.webContents.send('fathi:newtab:shortcuts', { wcId: event.sender.id });
   return ok({});
 });
 

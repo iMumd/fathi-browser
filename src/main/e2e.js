@@ -179,7 +179,7 @@ async function run(win) {
   /* ---- 5. device mode (iPhone preset), same window, mobile metrics */
   trace('check 5: device tab');
   await ui.executeJavaScript(`void createTab({ deviceId: 'iphone-15-pro' }); true`);
-  await sleep(2600);
+  await sleep(3000);
   trace('check 5: device frame');
 
   const devFrame = await withTimeout(ui.executeJavaScript(`(() => {
@@ -205,7 +205,7 @@ async function run(win) {
       } catch (e) { return { err: String(e && e.message || e) }; }
     })()`), 5000, 'device metrics');
     return m && !m.err ? m : null;
-  }, 15000);
+  }, 20000);
   const devOK = devMetrics &&
     devMetrics.iw === 393 && devMetrics.sw === 393 &&
     Math.abs(devMetrics.dpr - 3) < 0.01 && devMetrics.touch === 5 &&

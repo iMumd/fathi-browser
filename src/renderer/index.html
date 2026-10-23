@@ -24,6 +24,10 @@
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     </button>
 
+    <button id="app-menu-btn" data-i18n-title="menu.app" aria-label="Fathi menu">
+      <img src="../../assets/icon-64.png" alt="" draggable="false" />
+    </button>
+
     <div id="wincontrols">
       <button id="win-min" class="win-btn" data-i18n-title="win.minimize" aria-label="Minimize">
         <svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
@@ -105,7 +109,28 @@
 
   <div id="progress"><div id="bar"></div></div>
 
-  <main id="view"></main>
+  <main id="view"><div id="device-frame" class="hidden"><div class="df-notch"></div></div></main>
+</div>
+
+<!-- ============================= APP MENU ============================== -->
+<div id="app-menu" class="hidden">
+  <div class="am-head">
+    <img src="../../assets/icon-64.png" alt="" />
+    <div>
+      <b>Fathi</b>
+      <span id="am-version">v1.0.0</span>
+    </div>
+  </div>
+  <button id="am-guide" data-i18n="menu.guide">Guide and shortcuts</button>
+  <button id="am-hotkeys" data-i18n="menu.hotkeys">Keyboard shortcuts</button>
+  <button id="am-settings" data-i18n="menu.settings">Settings</button>
+  <button id="am-about" data-i18n="menu.about">About Fathi</button>
+  <div class="am-sep"></div>
+  <button id="am-github" data-i18n="menu.github">GitHub</button>
+  <button id="am-telegram" data-i18n="menu.telegram">Telegram</button>
+  <div class="am-sep"></div>
+  <button id="am-hide" data-i18n="menu.hide">Hide window</button>
+  <button id="am-quit" class="danger" data-i18n="menu.quit">Exit Fathi</button>
 </div>
 
 <!-- ========================== DEVICE POPOVER =========================== -->
@@ -191,6 +216,10 @@
       <div id="ix-list"></div>
 
       <div id="ix-detail" class="hidden">
+        <div class="ix-names">
+          <button class="ix-name active" data-ix-tab="request" data-i18n="intercept.tabRequest">Request</button>
+          <button class="ix-name" data-ix-tab="response" data-i18n="intercept.tabResponse">Response</button>
+        </div>
         <div class="field">
           <label data-i18n="intercept.url">URL</label>
           <input id="ix-url" type="text" spellcheck="false" dir="ltr" />
@@ -205,17 +234,42 @@
             <input id="ix-type" type="text" readonly />
           </div>
         </div>
-        <div class="field">
-          <label data-i18n="intercept.headers">Headers</label>
-          <textarea id="ix-headers" spellcheck="false" dir="ltr"></textarea>
+
+        <div id="ix-request-view">
+          <div class="field">
+            <label data-i18n="intercept.headers">Headers</label>
+            <div id="ix-headers-rows" class="ix-rows"></div>
+            <button class="btn sm ghost" id="ix-header-add" data-i18n="intercept.addHeader">Add header</button>
+          </div>
+          <div class="field" id="ix-body-field">
+            <div class="ix-label-row">
+              <label data-i18n="intercept.body">Body</label>
+              <button class="btn sm ghost" id="ix-body-format" data-i18n="intercept.pretty">Format JSON</button>
+            </div>
+            <textarea id="ix-body-text" spellcheck="false" dir="ltr"></textarea>
+            <div class="sub" id="ix-body-hint"></div>
+          </div>
         </div>
-        <div class="field" id="ix-body-field">
-          <label data-i18n="intercept.body">Body</label>
-          <textarea id="ix-body-text" spellcheck="false" dir="ltr"></textarea>
+
+        <div id="ix-response-view" class="hidden">
+          <div class="field">
+            <label data-i18n="intercept.respHeaders">Response headers</label>
+            <div id="ix-resp-headers" class="hdr-block"></div>
+          </div>
+          <div class="field">
+            <div class="ix-label-row">
+              <label data-i18n="intercept.respBody">Response body</label>
+              <button class="btn sm ghost" id="ix-resp-format" data-i18n="intercept.pretty">Format JSON</button>
+            </div>
+            <pre class="body-pre" id="ix-resp-body"></pre>
+            <div class="sub" id="ix-resp-hint"></div>
+          </div>
         </div>
+
         <div class="btn-row">
           <button class="btn primary" id="ix-forward" data-i18n="intercept.forward">Forward</button>
           <button class="btn danger" id="ix-drop" data-i18n="intercept.drop">Drop</button>
+          <button class="btn" id="ix-repeat" data-i18n="intercept.repeat">Repeat</button>
           <button class="btn ghost" id="ix-back" data-i18n="intercept.back">Back</button>
         </div>
         <div class="btn-row ix-code-row">
@@ -263,6 +317,8 @@
       <button class="snav" data-section="devices" data-i18n="settings.nav.devices">Devices</button>
       <button class="snav" data-section="fingerprint" data-i18n="settings.nav.fingerprint">Fingerprint</button>
       <button class="snav" data-section="proxy" data-i18n="settings.nav.proxy">Proxy</button>
+      <button class="snav" data-section="intercept" data-i18n="settings.nav.intercept">Interceptor</button>
+      <button class="snav" data-section="shortcuts" data-i18n="settings.nav.shortcuts">Shortcuts</button>
       <button class="snav" data-section="wallpapers" data-i18n="settings.nav.wallpapers">Wallpapers</button>
       <button class="snav" data-section="extensions" data-i18n="settings.nav.extensions">Extensions</button>
       <button class="snav" data-section="about" data-i18n="settings.nav.about">About</button>
@@ -273,6 +329,28 @@
 </div>
 
 <div id="toasts"></div>
+
+<!-- ============================== GUIDE =============================== -->
+<div id="guide-overlay" class="overlay hidden">
+  <div id="guide-card">
+    <header id="guide-head">
+      <div class="guide-title">
+        <img src="../../assets/icon-64.png" alt="" />
+        <div>
+          <h1 data-i18n="guide.title">Fathi guide</h1>
+          <p class="muted small" data-i18n="guide.sub">Shortcuts, tools and how to work faster</p>
+        </div>
+      </div>
+      <button id="guide-close" class="icon-btn" data-i18n-title="guide.close" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div id="guide-body"></div>
+    <footer id="guide-foot">
+      <button class="btn sm primary" id="guide-settings" data-i18n="guide.customize">Customize shortcuts</button>
+    </footer>
+  </div>
+</div>
 
 <script src="i18n.js"></script>
 <script src="app.js"></script>

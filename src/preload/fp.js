@@ -542,7 +542,9 @@ if (isTopFrame) {
         proxyStatus: () => ipcRenderer.invoke('fathi:page:status'),
         settings: () => ipcRenderer.invoke('fathi:settings:get'),
         openExternal: (url) => ipcRenderer.invoke('fathi:open-external', url),
-        installExtension: (url) => ipcRenderer.invoke('fathi:ext:install', { input: url })
+        installExtension: (url) => ipcRenderer.invoke('fathi:ext:install', { input: url }),
+        openGuide: () => ipcRenderer.invoke('fathi:newtab:guide'),
+        openShortcuts: () => ipcRenderer.invoke('fathi:newtab:shortcuts')
       });
     } catch (e) {}
   }

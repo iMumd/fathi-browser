@@ -15,7 +15,8 @@ const EVENTS = new Set([
   'fathi:intercept:paused',
   'fathi:intercept:resolved',
   'fathi:intercept:state',
-  'fathi:net:batch'
+  'fathi:net:batch',
+  'fathi:menu:open'
 ]);
 
 contextBridge.exposeInMainWorld('api', {
@@ -25,7 +26,12 @@ contextBridge.exposeInMainWorld('api', {
     minimize: () => ipcRenderer.invoke('fathi:win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('fathi:win:toggle-maximize'),
     close: () => ipcRenderer.invoke('fathi:win:close'),
+    hide: () => ipcRenderer.invoke('fathi:win:hide'),
     state: () => ipcRenderer.invoke('fathi:win:state')
+  },
+
+  app: {
+    quit: () => ipcRenderer.invoke('fathi:app:quit')
   },
 
   fp: {
@@ -54,7 +60,17 @@ contextBridge.exposeInMainWorld('api', {
     set: (enabled) => ipcRenderer.invoke('fathi:intercept:set', { enabled }),
     resolve: (payload) => ipcRenderer.invoke('fathi:intercept:resolve', payload),
     drain: () => ipcRenderer.invoke('fathi:intercept:drain'),
-    filter: (filter) => ipcRenderer.invoke('fathi:intercept:filter', { filter })
+    filter: (filter) => ipcRenderer.invoke('fathi:intercept:filter', { filter }),
+    repeat: (payload) => ipcRenderer.invoke('fathi:intercept:repeat', payload || {})
+  },
+
+  device: {
+    emulate: (wcId, viewport) => ipcRenderer.invoke('fathi:device:emulate', { wcId, viewport })
+  },
+
+  rules: {
+    list: () => ipcRenderer.invoke('fathi:rules:list'),
+    save: (rules) => ipcRenderer.invoke('fathi:rules:save', { rules })
   },
 
   net: {

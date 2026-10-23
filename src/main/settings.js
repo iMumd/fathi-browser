@@ -40,6 +40,34 @@ const DEFAULTS = {
     filter: ''               // substring of the URL; empty intercepts everything
   },
 
+  // Burp-style Match and Replace. Applied by the session hooks in session.js
+  // and by the interceptor in intercept.js.
+  matchReplace: [],
+
+  // Keyboard shortcuts. Value is a canonical combo such as "Ctrl+Shift+T".
+  shortcuts: {
+    newTab: 'Ctrl+T',
+    closeTab: 'Ctrl+W',
+    reopenTab: 'Ctrl+Shift+T',
+    nextTab: 'Ctrl+Tab',
+    prevTab: 'Ctrl+Shift+Tab',
+    focusAddress: 'Ctrl+L',
+    reload: 'Ctrl+R',
+    hardReload: 'Ctrl+Shift+R',
+    back: 'Alt+Left',
+    forward: 'Alt+Right',
+    toggleDevice: 'Ctrl+Shift+M',
+    toggleProxy: 'Ctrl+Shift+P',
+    toggleInterceptor: 'Ctrl+Shift+I',
+    openGuide: 'Ctrl+/',
+    settings: 'Ctrl+,',
+    fingerprint: 'Ctrl+D',
+    zoomIn: 'Ctrl+=',
+    zoomOut: 'Ctrl+-',
+    zoomReset: 'Ctrl+0',
+    quit: 'Ctrl+Q'
+  },
+
   wallpapers: {
     source: 'unsplash',      // 'unsplash' (bundled, offline-safe) | 'custom' | 'none'
     custom: '',

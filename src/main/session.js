@@ -11,6 +11,7 @@ const path = require('node:path');
 const proxyMgr = require('./proxy');
 const extMgr = require('./extensions');
 const settings = require('./settings');
+const rewrite = require('./rewrite');
 
 /* ------------------------------------------------------------ header spoof */
 
@@ -56,10 +57,14 @@ function applyCertTrust(ses) {
         c.issuerName,
         c.issuer && c.issuer.commonName,
         c.issuer && c.issuer.organizationName,
+        c.issuer && c.issuer.organization,
         c.subjectName,
-        c.subject && c.subject.commonName
+        c.subject && c.subject.commonName,
+        c.subject && c.subject.organizationName
       ].filter(Boolean).join(' ');
-      if (/portswigger/i.test(names)) return callback(0);
+      // PortSwigger ships its CA as "PortSwigger CA" but organizations have
+      // been renamed over the years, so match every known spelling.
+      if (/portswigger|burp\s*suite|burp\s*ca/i.test(names)) return callback(0);
       callback(-3); // fall back to the default verification
     });
   } catch (e) {
@@ -91,9 +96,30 @@ function configureSession(ses, fp, partition, opts = {}) {
       delete h['DNT'];
       delete h['X-Client-Data'];
 
-      callback({ requestHeaders: h });
+      // Match and Replace on request headers, before anything leaves the tab.
+      const rules = (settings.get().matchReplace || []);
+      const hdr = rewrite.applyHeaders(h, rules, 'requestHeader');
+
+      callback({ requestHeaders: hdr.headers });
     });
   } catch (e) { console.error('[session] header hook', e); }
+
+  /* ---- response header rewriting */
+  try {
+    ses.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+      const rules = settings.get().matchReplace || [];
+      if (!rules.length) return callback({});
+      const h = {};
+      for (const [name, value] of Object.entries(details.responseHeaders || {})) {
+        h[name] = Array.isArray(value) ? value.join(', ') : String(value);
+      }
+      const res = rewrite.applyHeaders(h, rules, 'responseHeader');
+      if (!res.changed) return callback({});
+      const out = {};
+      for (const [name, value] of Object.entries(res.headers)) out[name] = [String(value)];
+      callback({ responseHeaders: out });
+    });
+  } catch {}
 
   try { ses.setUserAgent(fp.ua, fp.language); } catch {}
 

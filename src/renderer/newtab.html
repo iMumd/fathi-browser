@@ -397,7 +397,10 @@
       </a>
     </div>
 
-    <div id="shortcuts"></div>
+    <div id="shortcuts">
+      <button class="sc" id="sc-guide" type="button"><span class="dot">?</span><span data-i18n="menu.guide">Guide and shortcuts</span></button>
+      <button class="sc" id="sc-hotkeys" type="button"><span class="dot">K</span><span data-i18n="menu.hotkeys">Keyboard shortcuts</span></button>
+    </div>
   </main>
 
   <div id="bottom">
@@ -540,12 +543,15 @@
       function renderShortcuts() {
         const box = $('#shortcuts');
         if (!box) return;
-        box.innerHTML = SHORTCUTS.map((s) =>
+        const siteBtns = SHORTCUTS.map((s) =>
           `<button class="sc" data-url="${s.url}"><span class="dot">${s.ch}</span>${s.label}</button>`
         ).join('');
-        box.querySelectorAll('.sc').forEach((b) => {
+        box.innerHTML = siteBtns;
+        box.querySelectorAll('[data-url]').forEach((b) => {
           b.addEventListener('click', () => api.navigate && api.navigate(b.dataset.url));
         });
+        $('#sc-guide')?.addEventListener('click', () => { if (api.openGuide) api.openGuide(); });
+        $('#sc-hotkeys')?.addEventListener('click', () => { if (api.openShortcuts) api.openShortcuts(); });
       }
 
       /* ---------------------------- search -------------------------- */
