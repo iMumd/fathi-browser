@@ -1,4 +1,4 @@
-![Fathi](docs/banner.png)
+﻿![Fathi](docs/banner.png)
 
 # Fathi
 
@@ -80,3 +80,20 @@ Bundled photography from [Unsplash](https://unsplash.com).
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Updates
+
+### Linux (one command)
+
+`ash
+curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh | bash
+`
+
+### Windows (PowerShell as Administrator)
+
+`powershell
+irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
+`
+
+You can also download the latest release manually from [GitHub Releases](https://github.com/iMumd/fathi-browser/releases). The app also checks for updates on launch.
+
