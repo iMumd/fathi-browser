@@ -204,8 +204,8 @@ async function run(win) {
         return await wv.executeJavaScript('({ iw: innerWidth, ih: innerHeight, sw: screen.width, sh: screen.height, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, ua: navigator.userAgent, platform: navigator.platform, uaData: typeof navigator.userAgentData, chromeObj: typeof window.chrome })');
       } catch (e) { return { err: String(e && e.message || e) }; }
     })()`), 5000, 'device metrics');
-    return m && !m.err ? m : null;
-  }, 20000);
+    return m && !m.err && m.iw === 393 ? m : null;
+  }, 25000);
   const devOK = devMetrics &&
     devMetrics.iw === 393 && devMetrics.sw === 393 &&
     Math.abs(devMetrics.dpr - 3) < 0.01 && devMetrics.touch === 5 &&

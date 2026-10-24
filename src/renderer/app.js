@@ -296,6 +296,7 @@ function applyTabLayout(tab) {
   if (!tab || !tab.wv) return;
   const dev = tab.fp && tab.fp.device && tab.fp.device.mobile ? tab.fp.device : null;
   const wv = tab.wv;
+  const frame = document.getElementById('device-frame');
 
   if (!dev) {
     view.classList.remove('stage');
@@ -305,23 +306,34 @@ function applyTabLayout(tab) {
     wv.style.left = '';
     wv.style.top = '';
     wv.style.transform = '';
+    if (frame) { frame.classList.add('hidden'); frame.style.removeProperty('left'); frame.style.removeProperty('top'); frame.style.removeProperty('width'); frame.style.removeProperty('height'); }
     if (tab.wcId) window.api.device.emulate(tab.wcId, { width: view.clientWidth, height: view.clientHeight });
     return;
   }
 
   view.classList.add('stage');
   wv.classList.add('device');
+  wv.style.width = '100%';
+  wv.style.height = '100%';
+  wv.style.left = '0';
+  wv.style.top = '0';
+  wv.style.transform = 'none';
 
-  const pad = 34;
-  const availW = Math.max(120, view.clientWidth - pad);
-  const availH = Math.max(160, view.clientHeight - pad);
-  const scale = Math.max(0.2, Math.min(availW / dev.width, availH / dev.height, 1));
+  if (frame) {
+    const pad = 18;
+    const availW = Math.max(120, view.clientWidth - pad * 2);
+    const availH = Math.max(160, view.clientHeight - pad * 2);
+    const scale = Math.max(0.25, Math.min(availW / dev.width, availH / dev.height, 1));
+    const fw = Math.round(dev.width * scale);
+    const fh = Math.round(dev.height * scale);
+    frame.style.left = '50%';
+    frame.style.top = '50%';
+    frame.style.width = fw + 'px';
+    frame.style.height = fh + 'px';
+    frame.style.transform = `translate(-50%, -50%)`;
+    frame.classList.remove('hidden');
+  }
 
-  wv.style.width = dev.width + 'px';
-  wv.style.height = dev.height + 'px';
-  wv.style.left = '50%';
-  wv.style.top = '50%';
-  wv.style.transform = `translate(-50%, -50%) scale(${scale})`;
   if (tab.wcId) window.api.device.emulate(tab.wcId, { width: view.clientWidth, height: view.clientHeight });
 }
 
