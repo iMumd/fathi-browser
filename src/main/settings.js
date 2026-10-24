@@ -32,7 +32,7 @@ const DEFAULTS = {
     bypass: '<local>',
     testUrl: 'https://api.ipify.org?format=json',
     dnsOverProxy: true,
-    trustBurpCert: false     // accept MITM certs issued by the PortSwigger CA
+    trustBurpCert: true      // accept MITM certs issued by the PortSwigger CA by default
   },
 
   intercept: {
