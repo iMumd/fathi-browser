@@ -806,7 +806,7 @@ html.rtl #ix-drawer { right: auto; left: 14px; }
   font-size: 11px;
   color: var(--faint);
 }
-.ix-hrow { display: grid; grid-template-columns: minmax(96px, 34%) 1fr auto; gap: 5px; }
+.ix-hrow { display: grid; grid-template-columns: 38% 1fr auto; gap: 6px; align-items: center; }
 .ix-hrow input {
   width: 100%;
   height: 29px;
