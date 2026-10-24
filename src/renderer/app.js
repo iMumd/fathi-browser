@@ -935,14 +935,17 @@ function ixUpdateChrome() {  const count = ix.items.length;
 function ixRenderList() {
   const box = $('#ix-list');
   if (!box) return;
-  if (!ix.items.length) {
+  const needle = String(ix.filter || '').trim().toLowerCase();
+  const list = needle
+    ? ix.items.filter((r) => {
+        const hay = `${r.method} ${r.url} ${r.resourceType} ${r.postData || ''} ${JSON.stringify(r.headers || {})}`.toLowerCase();
+        return needle.split(/\s+/).filter(Boolean).every((part) => hay.includes(part));
+      })
+    : ix.items;
+  if (!list.length) {
     box.innerHTML = `<div class="ix-empty">${esc(t('intercept.empty'))}</div>`;
     return;
   }
-  const needle = String(ix.filter || '').trim().toLowerCase();
-  const list = needle
-    ? ix.items.filter((r) => `${r.method} ${r.url} ${r.resourceType}`.toLowerCase().includes(needle))
-    : ix.items;
   box.innerHTML = list.map((r) => `
     <button class="ix-item ${ix.current === r.id ? 'active' : ''}" data-ix="${esc(r.id)}">
       <span class="ix-m">${esc(r.method)}</span>
