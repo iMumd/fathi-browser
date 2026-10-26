@@ -11,6 +11,7 @@
  */
 const { session, net } = require('electron');
 const settings = require('./settings');
+const tor = require('./tor');
 
 const assignments = new Map(); // partition -> entry|null
 let rr = 0;
@@ -67,6 +68,9 @@ async function applyTo(ses, partition, forceEntry) {
   const cfg = settings.get().proxy;
   try {
     if (!entry || !cfg.enabled) {
+      // No pool entry to honour: route only .onion/.eth/.i2p through Tor and
+      // leave everything else on the normal connection.
+      if (await tor.applyTo(ses)) return null;
       await ses.setProxy({ mode: 'direct' });
       return null;
     }
@@ -158,14 +162,25 @@ async function test(rawEntry, testUrl) {
 function status(partition) {
   const cfg = settings.get().proxy;
   const entry = entryFor(partition);
-  if (!cfg.enabled) return { enabled: false, mode: cfg.mode, host: null };
+  const torCfg = settings.get().tor || {};
+  const torRouting = !!torCfg.enabled && (!cfg.enabled || !entry);
+  if (!cfg.enabled) {
+    return {
+      enabled: false,
+      mode: cfg.mode,
+      host: null,
+      count: pool().length,
+      tor: torRouting ? { enabled: true, port: tor.torPort() } : null
+    };
+  }
   return {
     enabled: !!entry,
     mode: cfg.mode,
     host: entry ? `${entry.host}:${entry.port}` : null,
     scheme: entry ? entry.scheme : null,
     username: entry ? entry.username : null,
-    count: pool().length
+    count: pool().length,
+    tor: torRouting ? { enabled: true, port: tor.torPort() } : null
   };
 }
 

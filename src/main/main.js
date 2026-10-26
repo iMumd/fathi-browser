@@ -55,6 +55,7 @@ const protocolPages = require('./protocol');
 const { configureSession, applyCertTrust } = require('./session');
 const intercept = require('./intercept');
 const network = require('./network');
+const tor = require('./tor');
 
 /* ----------------------------------------------------------------- state */
 
@@ -437,6 +438,25 @@ ipcMain.handle('fathi:proxy:test', async (event, { entry, url } = {}) => {
   try {
     const res = await proxyMgr.test(entry, url);
     return ok({ result: res });
+  } catch (e) { return fail(e); }
+});
+
+/* --- Tor routing for .onion / .eth / .i2p */
+ipcMain.handle('fathi:tor:status', async () => {
+  try { return ok({ status: await tor.status() }); }
+  catch (e) { return fail(e); }
+});
+
+ipcMain.handle('fathi:tor:set', async (event, patch = {}) => {
+  try {
+    const cfg = settings.save({ tor: patch });
+    const applied = [];
+    for (const [partition, rec] of partitions) {
+      await proxyMgr.applyTo(rec.ses, partition);
+      applied.push(partition);
+    }
+    mainWindow && mainWindow.webContents.send('fathi:tor:changed', cfg.tor);
+    return ok({ config: cfg.tor, applied: applied.length, status: await tor.status() });
   } catch (e) { return fail(e); }
 });
 

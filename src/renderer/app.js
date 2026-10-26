@@ -2271,6 +2271,7 @@ function renderSection(section) {
 
   if (section === 'proxy') {
     const p = S.proxy || {};
+    const torCfg = S.tor || {};
     body.innerHTML = `
       <div class="card">
         <h3>${esc(t('proxy.title'))}</h3>
@@ -2320,6 +2321,28 @@ function renderSection(section) {
         </div>
 
         <div id="px-result" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h3>${esc(t('proxy.tor'))}</h3>
+        <p class="hint">${esc(t('proxy.torHint'))}</p>
+
+        <div class="row">
+          <div><label>${esc(t('proxy.torEnable'))}</label></div>
+          <div class="switch ${torCfg.enabled ? 'on' : ''}" id="tor-enabled"></div>
+        </div>
+
+        <div class="field" style="margin-top:12px">
+          <label>${esc(t('proxy.torPort'))}</label>
+          <input type="number" id="tor-port" min="1" max="65535" dir="ltr" value="${esc(torCfg.port || 9050)}" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="tor-save">${esc(t('proxy.apply'))}</button>
+          <button class="btn" id="tor-check">${esc(t('proxy.torCheck'))}</button>
+        </div>
+
+        <div id="tor-result" style="margin-top:12px"></div>
       </div>
 
       <div class="card">
@@ -2385,6 +2408,39 @@ function renderSection(section) {
     $('#px-intercept').addEventListener('click', () => {
       closeSettings();
       ixOpenDrawer();
+    });
+
+    const showTorStatus = (st) => {
+      const out = $('#tor-result');
+      if (!out) return;
+      if (!st) { out.innerHTML = ''; return; }
+      const badge = st.running ? 'badge' : 'badge warn';
+      const label = st.running ? t('proxy.torRunning') : t('proxy.torStopped');
+      out.innerHTML = `<span class="${badge}">${esc(label)}</span> <span class="mono">127.0.0.1:${esc(st.port)}</span>`;
+    };
+
+    window.api.tor.status().then((res) => {
+      if (res && res.ok) showTorStatus(res.status);
+    });
+
+    $('#tor-enabled').addEventListener('click', (e) => e.currentTarget.classList.toggle('on'));
+
+    $('#tor-check').addEventListener('click', async () => {
+      const res = await window.api.tor.status();
+      if (!res.ok) return toast(res.error, 'err');
+      showTorStatus(res.status);
+    });
+
+    $('#tor-save').addEventListener('click', async () => {
+      const port = Number($('#tor-port').value);
+      const res = await window.api.tor.set({
+        enabled: $('#tor-enabled').classList.contains('on'),
+        port: Number.isInteger(port) && port > 0 && port < 65536 ? port : 9050
+      });
+      if (!res.ok) return toast(res.error, 'err');
+      state.settings.tor = res.config;
+      showTorStatus(res.status);
+      toast(t('toast.saved'), 'ok');
     });
 
     renderProxyStatus();
@@ -2700,7 +2756,8 @@ async function renderProxyStatus() {
     <div class="kv"><span class="k">${esc(t('proxy.host'))}</span><span class="v mono">${esc(p.host || 'n/a')}</span></div>
     <div class="kv"><span class="k">${esc(t('proxy.modeLabel'))}</span><span class="v">${p.mode === 'rotate' ? esc(t('proxy.rotateMode')) : esc(t('proxy.single'))}</span></div>
     <div class="kv"><span class="k">${esc(t('proxy.count'))}</span><span class="v">${p.count || 0}</span></div>
-    <div class="kv"><span class="k">${esc(t('proxy.partition'))}</span><span class="v mono">${esc(tab.partition)}</span></div>`;
+    <div class="kv"><span class="k">${esc(t('proxy.partition'))}</span><span class="v mono">${esc(tab.partition)}</span></div>${p.tor ? `
+    <div class="kv"><span class="k">${esc(t('proxy.tor'))}</span><span class="v mono">127.0.0.1:${esc(p.tor.port)}</span></div>` : ''}`;
 }
 
 async function renderExtensionList() {
@@ -2882,6 +2939,10 @@ window.api.on('fathi:proxy:changed', (cfg) => {
   if (state.settings) state.settings.proxy = cfg;
   updateChips();
   renderProxyStatus();
+});
+
+window.api.on('fathi:tor:changed', (cfg) => {
+  if (state.settings) state.settings.tor = cfg;
 });
 
 window.api.on('fathi:intercept:paused', (rec) => {

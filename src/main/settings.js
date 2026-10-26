@@ -40,6 +40,13 @@ const DEFAULTS = {
     filter: ''               // substring of the URL; empty intercepts everything
   },
 
+  // Special-use names are only reachable through an anonymising network.
+  // Only .onion/.eth/.i2p are routed here; everything else stays direct.
+  tor: {
+    enabled: true,
+    port: 9050
+  },
+
   // Burp-style Match and Replace. Applied by the session hooks in session.js
   // and by the interceptor in intercept.js.
   matchReplace: [],

@@ -177,6 +177,14 @@
       'proxy.interceptHint': 'Pause, edit, forward or drop requests inside the browser.',
       'proxy.openIntercept': 'Open interceptor',
 
+      'proxy.tor': 'Tor for special names',
+      'proxy.torHint': 'Routes .onion, .eth and .i2p addresses through a local Tor SOCKS5 listener. All other traffic stays direct.',
+      'proxy.torEnable': 'Route special domains through Tor',
+      'proxy.torPort': 'SOCKS5 port',
+      'proxy.torRunning': 'Tor detected',
+      'proxy.torStopped': 'No Tor listener detected',
+      'proxy.torCheck': 'Check again',
+
       'intercept.title': 'Interceptor',
       'intercept.chip': 'Intercept',
       'intercept.close': 'Close interceptor',
@@ -585,6 +593,14 @@
       'proxy.intercept': 'اعتراض الطلبات',
       'proxy.interceptHint': 'أوقف وعدّل ومرّر أو أسقط الطلبات داخل المتصفح.',
       'proxy.openIntercept': 'فتح الاعتراض',
+
+      'proxy.tor': 'تور للنطاقات الخاصة',
+      'proxy.torHint': 'يوجّه عناوين .onion و.eth و.i2p عبر مستمع Tor SOCKS5 المحلي. بقية الحركة تبقى مباشرة.',
+      'proxy.torEnable': 'توجيه النطاقات الخاصة عبر Tor',
+      'proxy.torPort': 'منفذ SOCKS5',
+      'proxy.torRunning': 'تم العثور على Tor',
+      'proxy.torStopped': 'لم يتم العثور على مستمع Tor',
+      'proxy.torCheck': 'فحص مجدداً',
 
       'intercept.title': 'الاعتراض',
       'intercept.chip': 'اعتراض',
