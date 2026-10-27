@@ -12,6 +12,7 @@ const EVENTS = new Set([
   'fathi:win:state',
   'fathi:proxy:changed',
   'fathi:tor:changed',
+  'fathi:update:state',
   'fathi:settings:changed',
   'fathi:intercept:paused',
   'fathi:intercept:resolved',
@@ -59,6 +60,15 @@ contextBridge.exposeInMainWorld('api', {
   tor: {
     status: () => ipcRenderer.invoke('fathi:tor:status'),
     set: (patch) => ipcRenderer.invoke('fathi:tor:set', patch)
+  },
+
+  update: {
+    state: () => ipcRenderer.invoke('fathi:update:state'),
+    check: () => ipcRenderer.invoke('fathi:update:check'),
+    download: () => ipcRenderer.invoke('fathi:update:download'),
+    install: () => ipcRenderer.invoke('fathi:update:install'),
+    open: () => ipcRenderer.invoke('fathi:update:open'),
+    command: () => ipcRenderer.invoke('fathi:update:command')
   },
 
   intercept: {

@@ -56,6 +56,7 @@ const { configureSession, applyCertTrust } = require('./session');
 const intercept = require('./intercept');
 const network = require('./network');
 const tor = require('./tor');
+const updater = require('./updater');
 
 /* ----------------------------------------------------------------- state */
 
@@ -460,6 +461,31 @@ ipcMain.handle('fathi:tor:set', async (event, patch = {}) => {
   } catch (e) { return fail(e); }
 });
 
+/* --- application updates */
+ipcMain.handle('fathi:update:state', () => ok({ state: updater.getState() }));
+
+ipcMain.handle('fathi:update:check', async () => {
+  try { return ok({ state: await updater.check() }); }
+  catch (e) { return fail(e); }
+});
+
+ipcMain.handle('fathi:update:download', async () => {
+  try { return ok(await updater.download()); }
+  catch (e) { return fail(e); }
+});
+
+ipcMain.handle('fathi:update:install', () => ok({ installed: updater.install() }));
+
+ipcMain.handle('fathi:update:open', async () => {
+  try { return ok({ opened: await updater.openRelease() }); }
+  catch (e) { return fail(e); }
+});
+
+ipcMain.handle('fathi:update:command', () => {
+  try { return ok({ copied: updater.copyCommand(), command: updater.UPDATE_COMMAND }); }
+  catch (e) { return fail(e); }
+});
+
 /* --- interceptor (Burp-style pause/edit) */
 ipcMain.handle('fathi:intercept:state', () => ok({ state: intercept.state() }));
 
@@ -763,6 +789,7 @@ app.whenReady().then(async () => {
 
   createWindow();
   intercept.init(mainWindow);
+  updater.init(mainWindow);
   network.init(mainWindow, {
     meta: (wc) => {
       const rec = recordForWebContents(wc);

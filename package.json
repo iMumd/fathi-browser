@@ -27,9 +27,9 @@
   "scripts": {
     "start": "electron .",
     "icons": "node tools/make-icons.js && node tools/make-installer-art.js",
-    "dist:win": "electron-builder --win nsis portable --x64",
-    "dist:linux": "electron-builder --linux dir tar.gz --x64",
-    "dist:mac": "electron-builder --mac zip --x64 --arm64",
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never",
+    "dist:linux": "electron-builder --linux dir tar.gz --x64 --publish never",
+    "dist:mac": "electron-builder --mac zip --x64 --arm64 --publish never",
     "dist:all": "npm run dist:win && npm run dist:linux && npm run dist:mac"
   },
   "dependencies": {
@@ -49,6 +49,13 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "iMumd",
+        "repo": "fathi-browser"
+      }
+    ],
     "files": [
       "src/**/*",
       "assets/**/*",

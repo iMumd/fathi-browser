@@ -45,6 +45,127 @@ function toast(message, kind = '') {
   setTimeout(() => el.remove(), 3500);
 }
 
+/* --------------------------------------------------------------- updates */
+
+let updateState = null;
+let updateDismissed = false;
+
+function updateStatusText(st) {
+  if (!st) return '';
+  switch (st.status) {
+    case 'checking': return t('update.checking');
+    case 'latest': return t('update.latest');
+    case 'available': return t('update.available', { v: st.version || '', current: st.current || '' });
+    case 'downloading': return t('update.downloading', { n: st.progress || 0 });
+    case 'ready': return t('update.ready');
+    case 'error': return t('update.error');
+    default: return '';
+  }
+}
+
+function hideUpdateBanner() {
+  const banner = $('#update-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+function renderUpdate(st) {
+  if (!st) return;
+  updateState = st;
+  const inline = $('#about-update-text');
+  if (inline) inline.textContent = updateStatusText(st);
+
+  const banner = $('#update-banner');
+  if (!banner) return;
+  const status = st.status;
+  const visible = !updateDismissed && (status === 'available' || status === 'downloading' || status === 'ready');
+  banner.classList.toggle('hidden', !visible);
+  if (!visible) return;
+
+  const text = $('#ub-text');
+  const primary = $('#ub-primary');
+  const secondary = $('#ub-secondary');
+  const wrap = $('#ub-progress');
+  const bar = $('#ub-bar');
+  primary.classList.remove('hidden');
+  secondary.classList.remove('hidden');
+  wrap.classList.add('hidden');
+
+  if (status === 'available') {
+    if (st.manual) {
+      text.textContent = t('update.manual', { v: st.version || '' });
+      primary.textContent = t('update.open');
+      secondary.textContent = t('update.copy');
+    } else {
+      text.textContent = t('update.available', { v: st.version || '', current: st.current || '' });
+      primary.textContent = t('update.download');
+      secondary.textContent = t('update.later');
+    }
+  } else if (status === 'downloading') {
+    text.textContent = t('update.downloading', { n: st.progress || 0 });
+    primary.classList.add('hidden');
+    secondary.classList.add('hidden');
+    wrap.classList.remove('hidden');
+    bar.style.width = `${Math.max(0, Math.min(100, st.progress || 0))}%`;
+  } else if (status === 'ready') {
+    text.textContent = t('update.ready');
+    primary.textContent = t('update.restart');
+    secondary.textContent = t('update.later');
+  }
+}
+
+async function checkForUpdates(silent = false) {
+  updateDismissed = false;
+  const res = await window.api.update.check();
+  if (!res.ok) {
+    if (!silent) toast(res.error, 'err');
+    return;
+  }
+  renderUpdate(res.state);
+  if (!silent && res.state && res.state.status === 'latest') toast(t('update.latest'), 'ok');
+  if (!silent && res.state && res.state.status === 'error') toast(t('update.error'), 'err');
+}
+
+function bindUpdateUi() {
+  const primary = $('#ub-primary');
+  const secondary = $('#ub-secondary');
+  const close = $('#ub-close');
+  if (!primary || !secondary || !close) return;
+
+  primary.addEventListener('click', async () => {
+    const st = updateState || {};
+    if (st.status === 'ready') { window.api.update.install(); return; }
+    if (st.status !== 'available') return;
+    if (st.manual) { window.api.update.open(); return; }
+    const res = await window.api.update.download();
+    if (!res.ok) toast(res.error, 'err');
+  });
+
+  secondary.addEventListener('click', async () => {
+    const st = updateState || {};
+    if (st.status === 'available' && st.manual) {
+      const res = await window.api.update.command();
+      if (res.ok) toast(t('update.copied'), 'ok');
+      else toast(res.error, 'err');
+      return;
+    }
+    updateDismissed = true;
+    hideUpdateBanner();
+  });
+
+  close.addEventListener('click', () => {
+    updateDismissed = true;
+    hideUpdateBanner();
+  });
+
+  window.api.update.state().then((res) => {
+    if (res && res.ok) renderUpdate(res.state);
+  });
+
+  window.api.on('fathi:update:state', (st) => {
+    renderUpdate(st);
+  });
+}
+
 function shortUa(ua) {
   const m = String(ua || '').match(/\(([^)]+)\)/);
   const c = String(ua || '').match(/Chrome\/(\d+)/);
@@ -2669,7 +2790,11 @@ function renderSection(section) {
       <img src="../../assets/icon-128.png" alt="" />
       <h2>Fathi</h2>
       <p>${esc(t('about.tagline'))}</p>
-      <div style="margin-top:12px"><span class="badge accent">${esc(t('about.version', { v: info.version || '1.0.0' }))}</span></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="badge accent">${esc(t('about.version', { v: info.version || '1.0.0' }))}</span>
+        <button class="btn sm" id="about-update" type="button">${esc(t('update.check'))}</button>
+        <span id="about-update-text" class="muted">${esc(updateStatusText(updateState))}</span>
+      </div>
     </div>
 
     <div class="card credit-card">
@@ -2742,6 +2867,14 @@ function renderSection(section) {
   openLink('about-github', 'https://github.com/iMumd');
   openLink('about-channel', 'https://t.me/Mumdthoughts');
   openLink('about-email', 'mailto:hi@mumd.dev');
+
+  const checkBtn = $('#about-update');
+  if (checkBtn) {
+    checkBtn.addEventListener('click', () => {
+      checkBtn.disabled = true;
+      checkForUpdates(false).finally(() => { checkBtn.disabled = false; });
+    });
+  }
 }
 
 async function renderProxyStatus() {
@@ -3039,6 +3172,7 @@ window.addEventListener('keydown', (e) => {
   window.i18n.setLang(state.settings.language || 'en', { silent: true });
   applyTheme();
   applyStatic();
+  bindUpdateUi();
 
   try {
     const st = await window.api.intercept.state();
