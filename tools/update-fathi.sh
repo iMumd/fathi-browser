@@ -28,8 +28,12 @@ INSTDIR="/opt/fathi"
 echo "[Fathi Updater] Installing to $INSTDIR (requires sudo)"
 sudo mkdir -p "$INSTDIR"
 sudo rm -rf "$INSTDIR"/*
-sudo cp -r Fathi-*/* "$INSTDIR/" 2>/dev/null || sudo cp -r * "$INSTDIR/"
+sudo cp -a Fathi-*/* "$INSTDIR/" 2>/dev/null || sudo cp -a * "$INSTDIR/"
+sudo chown -R root:root "$INSTDIR" 2>/dev/null || true
 sudo chmod +x "$INSTDIR/fathi" 2>/dev/null || true
+if [ -f "$INSTDIR/chrome-sandbox" ]; then
+  sudo chmod 4755 "$INSTDIR/chrome-sandbox"
+fi
 sudo ln -sf "$INSTDIR/fathi" /usr/local/bin/fathi 2>/dev/null || true
 
 if [ -f "$INSTDIR/fathi.desktop" ]; then

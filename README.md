@@ -85,15 +85,29 @@ MIT. See [LICENSE](LICENSE).
 
 ### Linux (one command)
 
-`ash
+```bash
 curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh | bash
-`
+```
 
-### Windows (PowerShell as Administrator)
+Paste the command exactly as shown. Do not add `bash` before `curl`; the script is
+already piped into `bash`. The script asks for your sudo password, downloads the
+latest Linux archive, and installs it to `/opt/fathi`.
 
-`powershell
+To read the script before running it:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh
+less update-fathi.sh
+bash update-fathi.sh
+```
+
+### Windows (PowerShell)
+
+```powershell
 irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
-`
+```
+
+The updater launches the installer with elevation when needed.
 
 You can also download the latest release manually from [GitHub Releases](https://github.com/iMumd/fathi-browser/releases). The app also checks for updates on launch.
 
