@@ -77,6 +77,11 @@ function renderUpdate(st) {
   const banner = $('#update-banner');
   if (!banner) return;
   const status = st.status;
+  if (status === 'latest') {
+    updateDismissed = true;
+    banner.classList.add('hidden');
+    return;
+  }
   const visible = !updateDismissed && (status === 'available' || status === 'downloading' || status === 'ready');
   banner.classList.toggle('hidden', !visible);
   if (!visible) return;
@@ -158,11 +163,21 @@ function bindUpdateUi() {
   });
 
   window.api.update.state().then((res) => {
-    if (res && res.ok) renderUpdate(res.state);
+    if (res && res.ok) {
+      renderUpdate(res.state);
+      if (res.state && res.state.status === 'latest') {
+        updateDismissed = true;
+        hideUpdateBanner();
+      }
+    }
   });
 
   window.api.on('fathi:update:state', (st) => {
     renderUpdate(st);
+    if (st && st.status === 'latest') {
+      updateDismissed = true;
+      hideUpdateBanner();
+    }
   });
 }
 
