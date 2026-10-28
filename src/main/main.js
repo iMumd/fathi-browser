@@ -228,6 +228,10 @@ app.on('web-contents-created', (_event, wc) => {
   const rec = recordForWebContents(wc);
   if (rec && rec.fp && rec.fp.device && rec.fp.device.mobile) {
     const apply = () => applyDeviceEmulation(wc, rec.fp, lastViewport);
+    // Enable emulation before the first commit so a page's viewport meta is
+    // honoured from the start; enabling it after load keeps the desktop layout
+    // width until the page reloads.
+    apply();
     wc.once('dom-ready', apply);
     wc.on('did-navigate', apply);
   }

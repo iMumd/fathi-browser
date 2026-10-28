@@ -406,6 +406,8 @@ function wireWebview(tab) {
   wv.addEventListener('dom-ready', () => {
     wv.classList.add('ready');
     try { wv.setZoomFactor(1); } catch {}
+    try { tab.wcId = wv.getWebContentsId(); } catch {}
+    if (state.activeId === tab.id) applyTabLayout(tab);
     updateNavButtons();
   });
 

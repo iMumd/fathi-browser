@@ -185,17 +185,22 @@ async function run(win) {
   const devFrame = await withTimeout(ui.executeJavaScript(`(() => {
     const wv = document.querySelector('webview.active');
     const v = document.getElementById('view');
-    const r = v.getBoundingClientRect();
+    const f = document.getElementById('device-frame');
     const w = wv.getBoundingClientRect();
+    const fr = f ? f.getBoundingClientRect() : null;
     return {
       stage: v.classList.contains('stage'),
-      cssW: wv.style.width, cssH: wv.style.height,
-      styleRight: w.right <= r.right + 1 && w.left >= r.left - 1 && w.top >= r.top - 1 && w.bottom <= r.bottom + 1,
-      scale: wv.style.transform,
+      deviceClass: wv.classList.contains('device'),
+      frameVisible: !!(f && !f.classList.contains('hidden') && fr && fr.width > 0 && fr.height > 0),
+      frameRatio: fr && fr.height ? Number((fr.width / fr.height).toFixed(3)) : 0,
+      fillsStage: Math.abs(w.width - v.clientWidth) < 2 && Math.abs(w.height - v.clientHeight) < 2,
       url: (() => { try { return wv.getURL(); } catch { return ''; } })()
     };
   })()`), 5000, 'device frame');
-  add('device tab uses a frame', devFrame.stage && devFrame.cssW === '393px' && devFrame.cssH === '852px', JSON.stringify(devFrame));
+  add('device tab uses a frame',
+    devFrame.stage && devFrame.deviceClass && devFrame.frameVisible && devFrame.fillsStage &&
+      Math.abs(devFrame.frameRatio - 393 / 852) < 0.03,
+    JSON.stringify(devFrame));
 
   const devMetrics = await waitFor(async () => {
     const m = await withTimeout(ui.executeJavaScript(`(async () => {
@@ -204,8 +209,13 @@ async function run(win) {
         return await wv.executeJavaScript('({ iw: innerWidth, ih: innerHeight, sw: screen.width, sh: screen.height, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, ua: navigator.userAgent, platform: navigator.platform, uaData: typeof navigator.userAgentData, chromeObj: typeof window.chrome })');
       } catch (e) { return { err: String(e && e.message || e) }; }
     })()`), 5000, 'device metrics');
-    return m && !m.err && m.iw === 393 ? m : null;
+    return m && !m.err ? m : null;
   }, 25000);
+  const devSnap = await withTimeout(ui.executeJavaScript(`(async () => {
+    const wv = document.querySelector('webview.active');
+    try { return await wv.executeJavaScript('({ iw: innerWidth, sw: screen.width, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, ua: navigator.userAgent, platform: navigator.platform, uaData: typeof navigator.userAgentData, chromeObj: typeof window.chrome })'); } catch (e) { return { err: String(e && e.message || e) }; }
+  })()`), 5000, 'device snapshot').catch((e) => ({ timeout: String(e && e.message || e) }));
+  add('device metrics snapshot', false, JSON.stringify(devSnap));
   const devOK = devMetrics &&
     devMetrics.iw === 393 && devMetrics.sw === 393 &&
     Math.abs(devMetrics.dpr - 3) < 0.01 && devMetrics.touch === 5 &&
