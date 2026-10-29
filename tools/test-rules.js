@@ -1,0 +1,14 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { Worker } = require('node:worker_threads');
+const rewrite = require('../src/main/rewrite');
+const rule = { target: 'requestBody', match: 'token=(\\w+)', replace: 'token=redacted-$1', regex: true };
+assert.deepEqual(rewrite.test({ rules: [rule], target: 'requestBody', payload: 'token=abc&name=test' }), { output: 'token=redacted-abc&name=test', changed: true });
+assert.equal(rewrite.test({ rules: [{ ...rule, enabled: false }], target: 'requestBody', payload: 'token=abc' }).changed, false);
+assert.equal(rewrite.test({ rules: [rule], target: 'responseBody', payload: 'token=abc' }).changed, false);
+assert.throws(() => rewrite.test({ rules: [{ ...rule, match: '[' }], target: 'requestBody', payload: 'test' }), /Invalid regular/);
+assert.throws(() => rewrite.test({ rules: [], target: 'requestBody', payload: 'a'.repeat(65537) }), /64 KiB/);
+assert.equal(rewrite.test({ rules: [{ target: 'requestHeader', match: 'old', replace: 'new' }], target: 'requestHeader', payload: 'OLD' }).output, 'new');
+const worker = new Worker(require.resolve('../src/main/rule-test-worker'), { workerData: { rules: [rule], target: 'requestBody', payload: 'token=abc' } });
+worker.once('message', (result) => { assert.equal(result.output, 'token=redacted-abc'); console.log('Rule engine and worker tests passed'); });
+worker.once('error', (error) => { throw error; });

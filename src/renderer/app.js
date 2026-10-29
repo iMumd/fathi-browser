@@ -49,6 +49,7 @@ function toast(message, kind = '') {
 
 let updateState = null;
 let updateDismissed = false;
+let updateVersionSeen = null;
 
 function updateStatusText(st) {
   if (!st) return '';
@@ -71,6 +72,11 @@ function hideUpdateBanner() {
 function renderUpdate(st) {
   if (!st) return;
   updateState = st;
+  if (st.version && st.version !== updateVersionSeen && st.status === 'available') {
+    updateVersionSeen = st.version;
+    updateDismissed = false;
+    toast(t('update.available', { v: st.version, current: st.current || '' }), 'ok');
+  }
   const inline = $('#about-update-text');
   if (inline) inline.textContent = updateStatusText(st);
 
@@ -78,7 +84,6 @@ function renderUpdate(st) {
   if (!banner) return;
   const status = st.status;
   if (status === 'latest') {
-    updateDismissed = true;
     banner.classList.add('hidden');
     return;
   }
@@ -165,19 +170,11 @@ function bindUpdateUi() {
   window.api.update.state().then((res) => {
     if (res && res.ok) {
       renderUpdate(res.state);
-      if (res.state && res.state.status === 'latest') {
-        updateDismissed = true;
-        hideUpdateBanner();
-      }
     }
   });
 
   window.api.on('fathi:update:state', (st) => {
     renderUpdate(st);
-    if (st && st.status === 'latest') {
-      updateDismissed = true;
-      hideUpdateBanner();
-    }
   });
 }
 
@@ -451,19 +448,16 @@ function applyTabLayout(tab) {
 
   view.classList.add('stage');
   wv.classList.add('device');
-  wv.style.width = '100%';
-  wv.style.height = '100%';
-  wv.style.left = '0';
-  wv.style.top = '0';
+  const scale = Math.max(0.05, Math.min((Math.max(120, view.clientWidth) - 36) / dev.width, (Math.max(160, view.clientHeight) - 36) / dev.height, 1));
+  const fw = Math.round(dev.width * scale);
+  const fh = Math.round(dev.height * scale);
+  wv.style.width = fw + 'px';
+  wv.style.height = fh + 'px';
+  wv.style.left = Math.round((view.clientWidth - fw) / 2) + 'px';
+  wv.style.top = Math.round((view.clientHeight - fh) / 2) + 'px';
   wv.style.transform = 'none';
 
   if (frame) {
-    const pad = 18;
-    const availW = Math.max(120, view.clientWidth - pad * 2);
-    const availH = Math.max(160, view.clientHeight - pad * 2);
-    const scale = Math.max(0.25, Math.min(availW / dev.width, availH / dev.height, 1));
-    const fw = Math.round(dev.width * scale);
-    const fh = Math.round(dev.height * scale);
     frame.style.left = '50%';
     frame.style.top = '50%';
     frame.style.width = fw + 'px';
@@ -2059,6 +2053,7 @@ function mrRuleHtml(rule, index) {
     <div class="mr-rule" data-mr="${esc(rule.id)}">
       <div class="mr-head">
         <b>${esc(t('mr.ruleN', { n: index + 1 }))}</b>
+        <button class="mr-toggle btn sm" type="button" aria-expanded="true">${esc(t('mr.collapse'))}</button>
         <button class="mr-del" data-mr-del="${esc(rule.id)}">${esc(t('mr.remove'))}</button>
       </div>
       <div class="mr-row">
@@ -2129,10 +2124,26 @@ function renderMatchReplaceCard() {
         <button class="btn sm" id="mr-add">${esc(t('mr.add'))}</button>
         <button class="btn sm primary" id="mr-save">${esc(t('toast.saved'))}</button>
       </div>
+      <details class="mr-tester">
+        <summary>${esc(t('mr.testTitle'))}</summary>
+        <p class="hint">${esc(t('mr.testHint'))}</p>
+        <label for="mr-test-target">${esc(t('mr.target'))}</label>
+        <select id="mr-test-target">${['requestHeader', 'requestBody', 'responseHeader', 'responseBody'].map((id) => `<option value="${id}">${esc(t('mr.target.' + id))}</option>`).join('')}</select>
+        <label for="mr-payload">${esc(t('mr.payload'))}</label>
+        <textarea id="mr-payload" dir="ltr" rows="5" spellcheck="false"></textarea>
+        <button class="btn primary" id="mr-test">${esc(t('mr.test'))}</button>
+        <p id="mr-test-status" role="status"></p>
+        <pre id="mr-test-result" dir="ltr"></pre>
+      </details>
     </div>`;
 }
 
 function wireMatchReplaceCard() {
+  $('#mr-test')?.addEventListener('click', async () => {
+    const res = await window.api.rules.test({ rules: collectRules(), target: $('#mr-test-target').value, payload: $('#mr-payload').value });
+    $('#mr-test-status').textContent = res.ok ? t(res.changed ? 'mr.changed' : 'mr.unchanged') : res.error;
+    $('#mr-test-result').textContent = res.ok ? res.output : '';
+  });
   const add = $('#mr-add');
   if (add) {
     add.addEventListener('click', () => {
@@ -2154,6 +2165,15 @@ function wireMatchReplaceCard() {
 }
 
 function wireRuleDelete() {
+  $$('#mr-list .mr-toggle').forEach((b) => {
+    if (b.dataset.wired) return;
+    b.dataset.wired = '1';
+    b.addEventListener('click', () => {
+      const collapsed = b.closest('.mr-rule').classList.toggle('collapsed');
+      b.setAttribute('aria-expanded', String(!collapsed));
+      b.textContent = t(collapsed ? 'mr.expand' : 'mr.collapse');
+    });
+  });
   $$('#mr-list [data-mr-del]').forEach((b) => {
     if (b.dataset.wired) return;
     b.dataset.wired = '1';
@@ -2175,6 +2195,14 @@ function openSettings(section) {
 
 function closeSettings() {
   $('#settings-overlay').classList.add('hidden');
+}
+
+async function showReleaseNotesOnce() {
+  if (state.settings.lastSeenRelease === state.info.version) return false;
+  openSettings('whatsnew');
+  const saved = await window.api.settings.set({ lastSeenRelease: state.info.version });
+  if (saved.ok) state.settings.lastSeenRelease = state.info.version;
+  return true;
 }
 
 $('#btn-menu').addEventListener('click', () => openSettings());
@@ -2202,6 +2230,15 @@ const CHECK_LINKS = [
 function renderSection(section) {
   const body = $('#settings-body');
   const S = state.settings || {};
+
+  if (section === 'whatsnew') {
+    body.innerHTML = `<div class="card release-notes"><span class="badge accent">Fathi ${esc(state.info.version)}</span>
+      <h2>${esc(t('release.title'))}</h2><p class="hint">${esc(t('release.intro'))}</p>
+      <ul>${['burp', 'rules', 'devices', 'shortcuts', 'updates'].map((key) => `<li>${esc(t('release.' + key))}</li>`).join('')}</ul>
+      <button class="btn primary" id="release-done">${esc(t('release.continue'))}</button></div>`;
+    $('#release-done').addEventListener('click', closeSettings);
+    return;
+  }
 
   if (section === 'general') {
     body.innerHTML = `
@@ -2440,7 +2477,7 @@ function renderSection(section) {
 
         <div class="row">
           <div><label>${esc(t('proxy.burp'))}</label><div class="sub">${esc(t('proxy.burpHint'))}</div></div>
-          <button class="btn sm" id="px-burp">${esc(t('proxy.burpApply'))}</button>
+          <button class="btn burp-action" id="px-burp">${esc(t('proxy.burpApply'))}</button>
         </div>
 
         <div class="row">
@@ -2784,7 +2821,7 @@ function renderSection(section) {
     $('#sc-reset').addEventListener('click', async () => {
       const res = await window.api.settings.set({ shortcuts: {} });
       if (res && res.ok) {
-        state.settings.shortcuts = (res.config && res.config.shortcuts) || {};
+        state.settings.shortcuts = (res.settings && res.settings.shortcuts) || {};
         toast(t('toast.saved'), 'ok');
         renderSection('shortcuts');
       }
@@ -2793,7 +2830,7 @@ function renderSection(section) {
     $('#sc-save').addEventListener('click', async () => {
       const res = await window.api.settings.set({ shortcuts: sc });
       if (res && res.ok) {
-        state.settings.shortcuts = (res.config && res.config.shortcuts) || sc;
+        state.settings.shortcuts = (res.settings && res.settings.shortcuts) || sc;
         toast(t('toast.saved'), 'ok');
       }
     });
@@ -3134,9 +3171,13 @@ window.api.on('fathi:net:batch', (batch) => {
   }
 });
 
+let layoutTimer;
 window.addEventListener('resize', () => {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
   const tab = activeTab();
   if (tab) applyTabLayout(tab);
+  }, 80);
   closeDevicePopover();
 });
 
@@ -3218,6 +3259,9 @@ window.addEventListener('keydown', (e) => {
   });
 
   await createTab({ deviceId: state.settings.defaultDevice || 'desktop' });
+  if (state.info.packaged && state.settings.lastSeenRelease !== state.info.version) {
+    await showReleaseNotesOnce();
+  }
 
   window.addEventListener('focus', () => { updateNavButtons(); updateChips(); });
 })();

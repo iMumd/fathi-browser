@@ -16,6 +16,7 @@ const DEFAULTS = {
   searchEngine: 'duckduckgo',
   newTabFocus: 'omnibox',
   defaultDevice: 'desktop',
+  lastSeenRelease: '',
 
   fingerprint: {
     enabled: true,

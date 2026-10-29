@@ -558,10 +558,10 @@ webview.wv {
 webview.wv.active { display: inline-flex; }
 webview.wv:not(.active) { display: none; }
 webview.wv.ready { opacity: 1; }
+webview.wv.device { inset: auto; border-radius: 12px; overflow: hidden; }
 
-/* Mobile presets keep the webview full size and let Chromium emulate the
-   device viewport (webContents.enableDeviceEmulation). The frame below is a
-   pure decoration drawn around the emulated screen. */
+/* Mobile guests fit the scaled viewport. The frame is decorative and never
+   intercepts input; Chromium handles mobile layout and touch coordinates. */
 #device-frame {
   position: absolute;
   z-index: 1;
@@ -1276,9 +1276,10 @@ html.rtl .switch.on::after { transform: translateX(-14px); }
   text-transform: uppercase;
 }
 
-select, input[type="text"], input[type="password"], textarea {
+select, input[type="text"], input[type="password"], input[type="number"], textarea {
   width: 100%;
   background: var(--field);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 9px 10px;
@@ -1292,10 +1293,13 @@ select { appearance: none; padding-inline-end: 30px; cursor: pointer;
   background-position: right 9px center;
 }
 html.rtl select { background-position: left 9px center; padding-inline-end: 10px; padding-inline-start: 30px; }
-select:focus, input[type="text"]:focus, textarea:focus {
+select:focus, input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, textarea:focus {
   border-color: var(--accent);
   background: var(--surface);
 }
+input[type="number"] { color-scheme: dark; font-variant-numeric: tabular-nums; min-height: 36px; }
+html[data-theme="light"] input[type="number"] { color-scheme: light; }
+#tor-port { max-width: 180px; border-radius: 6px; }
 textarea { min-height: 92px; resize: vertical; line-height: 1.55; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 
@@ -1658,7 +1662,25 @@ html.rtl .fp-ua, html.rtl .mono { direction: ltr; text-align: start; }
   background: var(--surface);
 }
 .mr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
-.mr-head b { font-size: 12px; }
+.mr-head b { font-size: 12px; flex: 1; }
+.mr-rule.collapsed > .mr-row { display: none; }
+.release-notes { max-width: 720px; margin: 20px auto; }
+.release-notes h2 { font-size: 24px; margin: 18px 0 10px; }
+.release-notes ul { padding-inline-start: 20px; font-size: 14px; line-height: 1.8; }
+.release-notes li { margin-bottom: 12px; }
+.mr-rule.collapsed .mr-head { margin-bottom: 0; }
+.burp-action { min-height: 38px; min-width: 112px; padding: 8px 18px; font-size: 13px; flex-shrink: 0; }
+.mr-tester { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.mr-tester summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.mr-tester label { display: block; margin: 12px 0 6px; font-size: 12px; }
+.mr-tester textarea, .mr-tester select { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px; }
+.mr-tester textarea { resize: vertical; font: 12px/1.6 monospace; margin-bottom: 10px; }
+.mr-tester pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; font: 12px/1.6 monospace; }
+.sc-list .sc-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 210px); align-items: center; gap: 16px; padding: 10px 0; }
+.sc-name { font-size: 13px; line-height: 1.5; }
+.sc-row .sc-input { width: 100%; min-width: 0; height: 34px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: 12px monospace; text-align: center; }
+.sc-input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 640px) { .sc-list .sc-row { grid-template-columns: minmax(0, 1fr) 145px; gap: 8px; } .mr-rule .mr-row { grid-template-columns: 1fr; } .mr-check { flex-wrap: wrap; } }
 .mr-head .mr-del {
   height: 25px;
   padding: 0 9px;

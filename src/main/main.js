@@ -43,6 +43,11 @@ for (const d of [TMP_SESSION, DOWNLOAD_DIR]) {
 }
 // Chromium's cache / cookies / GPUCache all go here and are wiped on quit.
 app.setPath('sessionData', TMP_SESSION);
+if (process.argv.includes('--fathi-e2e')) {
+  const testConfig = path.join(TMP_SESSION, 'test-config');
+  fs.mkdirSync(testConfig, { recursive: true });
+  app.setPath('userData', testConfig);
+}
 
 /* --------------------------------------------------------------- modules */
 
@@ -186,35 +191,43 @@ function recordForWebContents(wc) {
   return null;
 }
 
-/** Device emulation for mobile presets. Uses the native webContents API so we
- *  never need a second debugger client (which froze tabs and fought with
- *  DevTools). The renderer sends its viewport so the emulated screen can be
- *  scaled and centred without a CSS transform on the webview. */
-function applyDeviceEmulation(wc, fp, viewport) {
+/** Reuse the recorder's debugger connection, never attach a competing client.
+ * CDP mobile metrics enable Blink's viewport-meta support, which the native
+ * screen emulation API alone does not enable for Electron guests. */
+const emulationLayouts = new WeakMap();
+async function applyDeviceEmulation(wc, fp, viewport) {
   const dev = fp && fp.device;
   if (!wc || wc.isDestroyed()) return;
   try {
     if (!dev || !dev.mobile) {
-      wc.disableDeviceEmulation();
+      if (emulationLayouts.has(wc) && wc.debugger.isAttached()) {
+        await wc.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+        await wc.debugger.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: false });
+      }
+      emulationLayouts.delete(wc);
       return;
     }
     const vw = Math.max(120, Number(viewport && viewport.width) || 900);
     const vh = Math.max(160, Number(viewport && viewport.height) || 700);
-    const pad = 34;
-    const scale = Math.max(0.2, Math.min((vw - pad) / dev.width, (vh - pad) / dev.height, 1));
-    wc.enableDeviceEmulation({
-      screenPosition: 'mobile',
-      screenSize: { width: dev.width, height: dev.height },
-      viewPosition: {
-        x: Math.max(0, Math.round((vw - dev.width * scale) / 2)),
-        y: Math.max(0, Math.round((vh - dev.height * scale) / 2))
-      },
+    const pad = 36;
+    const scale = Math.max(0.05, Math.min((vw - pad) / dev.width, (vh - pad) / dev.height, 1));
+    const key = JSON.stringify([dev.width, dev.height, dev.dpr, scale]);
+    if (emulationLayouts.get(wc) === key) return;
+    if (!wc.debugger.isAttached() || wc.isDevToolsOpened()) return;
+    emulationLayouts.set(wc, key);
+    await wc.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
+      mobile: true,
+      width: dev.width,
+      height: dev.height,
+      screenWidth: dev.width,
+      screenHeight: dev.height,
       deviceScaleFactor: dev.dpr || 1,
-      viewSize: { width: dev.width, height: dev.height },
       scale
     });
+    await wc.debugger.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     if (fp.ua) wc.setUserAgent(fp.ua, (fp.languages || ['en-US']).join(','));
   } catch (e) {
+    emulationLayouts.delete(wc);
     // Target already gone or emulation unsupported; the page still renders.
   }
 }
@@ -228,12 +241,11 @@ app.on('web-contents-created', (_event, wc) => {
   const rec = recordForWebContents(wc);
   if (rec && rec.fp && rec.fp.device && rec.fp.device.mobile) {
     const apply = () => applyDeviceEmulation(wc, rec.fp, lastViewport);
-    // Enable emulation before the first commit so a page's viewport meta is
-    // honoured from the start; enabling it after load keeps the desktop layout
-    // width until the page reloads.
-    apply();
+    // A newly created guest has no render view yet. Configuring it synchronously
+    // here can crash Chromium when a mobile tab is attached.
     wc.once('dom-ready', apply);
-    wc.on('did-navigate', apply);
+    wc.debugger.on('detach', () => emulationLayouts.delete(wc));
+    wc.on('devtools-closed', apply);
   }
 
   // target=_blank -> new Fathi tab
@@ -522,7 +534,7 @@ ipcMain.handle('fathi:intercept:repeat', async (event, payload = {}) => {
 });
 
 /* --- device emulation geometry from the renderer */
-ipcMain.handle('fathi:device:emulate', (event, { wcId, viewport } = {}) => {
+ipcMain.handle('fathi:device:emulate', async (event, { wcId, viewport } = {}) => {
   try {
     if (viewport) lastViewport = {
       width: Number(viewport.width) || lastViewport.width,
@@ -531,13 +543,24 @@ ipcMain.handle('fathi:device:emulate', (event, { wcId, viewport } = {}) => {
     const wc = webContents.fromId(Number(wcId));
     if (!wc || wc.isDestroyed()) return ok({ applied: false });
     const rec = recordForWebContents(wc);
-    if (rec && rec.fp) applyDeviceEmulation(wc, rec.fp, lastViewport);
+    if (rec && rec.fp) await applyDeviceEmulation(wc, rec.fp, lastViewport);
     return ok({ applied: true });
   } catch (e) { return fail(e); }
 });
 
 /* --- match and replace rules */
 ipcMain.handle('fathi:rules:list', () => ok({ rules: settings.get().matchReplace || [] }));
+
+ipcMain.handle('fathi:rules:test', async (_event, input) => {
+  // User regexes can backtrack indefinitely. Keep previews off the UI process.
+  const { Worker } = require('node:worker_threads');
+  return new Promise((resolve) => {
+    const worker = new Worker(require.resolve('./rule-test-worker'), { workerData: input });
+    const timer = setTimeout(() => { worker.terminate(); resolve(fail('Rule test timed out')); }, 1500);
+    worker.once('message', (result) => { clearTimeout(timer); resolve(result.error ? fail(result.error) : ok(result)); });
+    worker.once('error', (err) => { clearTimeout(timer); resolve(fail(err)); });
+  });
+});
 
 ipcMain.handle('fathi:rules:save', (event, { rules } = {}) => {
   try {
@@ -602,6 +625,7 @@ ipcMain.handle('fathi:settings:get', () => ok({
   settings: settings.get(),
   info: {
     version: app.getVersion(),
+    packaged: app.isPackaged && !process.argv.includes('--fathi-e2e'),
     chrome: process.versions.chrome,
     electron: process.versions.electron
   }
@@ -609,6 +633,9 @@ ipcMain.handle('fathi:settings:get', () => ok({
 
 ipcMain.handle('fathi:settings:set', (event, patch = {}) => {
   try {
+    if (patch.shortcuts && Object.keys(patch.shortcuts).length === 0) {
+      patch.shortcuts = { ...settings.DEFAULTS.shortcuts };
+    }
     const cfg = settings.save(patch);
     mainWindow && mainWindow.webContents.send('fathi:settings:changed', cfg);
     return ok({ settings: cfg });

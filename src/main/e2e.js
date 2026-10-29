@@ -153,6 +153,39 @@ async function run(win) {
     JSON.stringify(about));
 
   /* ---- 3. second tab gets a different partition */
+  const updateUi = await ui.executeJavaScript(`(async () => {
+    openSettings('proxy');
+    const port = document.getElementById('tor-port');
+    const portStyle = getComputedStyle(port);
+    const burp = document.getElementById('px-burp').getBoundingClientRect();
+    const themedPort = portStyle.backgroundColor !== 'rgb(255, 255, 255)' && portStyle.color !== portStyle.backgroundColor;
+    openSettings('shortcuts');
+    const input = document.querySelector('.sc-input').getBoundingClientRect();
+    openSettings('intercept');
+    document.getElementById('mr-add').click();
+    const rule = document.querySelector('.mr-rule:last-child');
+    rule.querySelector('.mr-match').value = 'hello';
+    rule.querySelector('.mr-replace').value = 'updated';
+    rule.querySelector('.mr-toggle').click();
+    const collapsed = getComputedStyle(rule.querySelector('.mr-row')).display === 'none';
+    const test = await window.api.rules.test({ rules: collectRules(), target: 'responseBody', payload: 'hello payload' });
+    renderUpdate({ status: 'latest' });
+    renderUpdate({ status: 'available', version: '99.0.0', current: '1.0.2', manual: true });
+    const alerted = !document.getElementById('update-banner').classList.contains('hidden');
+    renderUpdate({ status: 'latest' });
+    const hidden = document.getElementById('update-banner').classList.contains('hidden');
+    closeSettings();
+    const firstNotes = await showReleaseNotesOnce();
+    const notesVisible = !!document.getElementById('release-done');
+    closeSettings();
+    const secondNotes = await showReleaseNotesOnce();
+    return { themedPort, burpHeight: burp.height, shortcutHeight: input.height, collapsed, test, alerted, hidden, firstNotes, notesVisible, secondNotes };
+  })()`);
+  add('SOCKS port follows theme', updateUi.themedPort, JSON.stringify(updateUi));
+  add('Burp and shortcut controls have consistent sizes', updateUi.burpHeight >= 38 && updateUi.shortcutHeight === 34, JSON.stringify(updateUi));
+  add('rules collapse and preview real payloads', updateUi.collapsed && updateUi.test.ok && updateUi.test.output === 'updated payload', JSON.stringify(updateUi));
+  add('new update alerts survive a previous latest result', updateUi.alerted && updateUi.hidden, JSON.stringify(updateUi));
+  add('release notes appear once per version', updateUi.firstNotes && updateUi.notesVisible && !updateUi.secondNotes, JSON.stringify(updateUi));
   trace('check 3: second tab');
   await ui.executeJavaScript(`document.getElementById('newtab-btn').click()`);
   await sleep(1800);
@@ -193,12 +226,12 @@ async function run(win) {
       deviceClass: wv.classList.contains('device'),
       frameVisible: !!(f && !f.classList.contains('hidden') && fr && fr.width > 0 && fr.height > 0),
       frameRatio: fr && fr.height ? Number((fr.width / fr.height).toFixed(3)) : 0,
-      fillsStage: Math.abs(w.width - v.clientWidth) < 2 && Math.abs(w.height - v.clientHeight) < 2,
+      matchesFrame: !!fr && Math.abs(w.width - fr.width) < 2 && Math.abs(w.height - fr.height) < 2 && Math.abs(w.left - fr.left) < 2 && Math.abs(w.top - fr.top) < 2,
       url: (() => { try { return wv.getURL(); } catch { return ''; } })()
     };
   })()`), 5000, 'device frame');
   add('device tab uses a frame',
-    devFrame.stage && devFrame.deviceClass && devFrame.frameVisible && devFrame.fillsStage &&
+    devFrame.stage && devFrame.deviceClass && devFrame.frameVisible && devFrame.matchesFrame &&
       Math.abs(devFrame.frameRatio - 393 / 852) < 0.03,
     JSON.stringify(devFrame));
 
@@ -215,7 +248,7 @@ async function run(win) {
     const wv = document.querySelector('webview.active');
     try { return await wv.executeJavaScript('({ iw: innerWidth, sw: screen.width, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, ua: navigator.userAgent, platform: navigator.platform, uaData: typeof navigator.userAgentData, chromeObj: typeof window.chrome })'); } catch (e) { return { err: String(e && e.message || e) }; }
   })()`), 5000, 'device snapshot').catch((e) => ({ timeout: String(e && e.message || e) }));
-  add('device metrics snapshot', false, JSON.stringify(devSnap));
+  add('device metrics snapshot', !!devSnap && !devSnap.timeout && !devSnap.err, JSON.stringify(devSnap));
   const devOK = devMetrics &&
     devMetrics.iw === 393 && devMetrics.sw === 393 &&
     Math.abs(devMetrics.dpr - 3) < 0.01 && devMetrics.touch === 5 &&

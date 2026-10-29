@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   rules: {
+    test: (input) => ipcRenderer.invoke('fathi:rules:test', input),
     list: () => ipcRenderer.invoke('fathi:rules:list'),
     save: (rules) => ipcRenderer.invoke('fathi:rules:save', { rules })
   },

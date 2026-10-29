@@ -91,6 +91,20 @@ function describe(rule) {
   return `${kind}: ${rule.match} -> ${rule.replace}`;
 }
 
+/** Preview the same ordered rules used for live traffic, without network I/O. */
+function test({ rules, target, payload } = {}) {
+  if (!TARGETS.has(target)) throw new Error('Invalid rule target');
+  if (typeof payload !== 'string' || payload.length > 65536) throw new Error('Payload must be text up to 64 KiB');
+  if (!Array.isArray(rules) || rules.length > 100) throw new Error('At most 100 rules can be tested');
+  for (const rule of rules) {
+    if (rule.enabled !== false && rule.target === target && rule.match && !compile(rule)) {
+      throw new Error('Invalid regular expression');
+    }
+  }
+  const result = applyString(payload, forTarget(rules, target));
+  return { output: result.text, changed: result.changed };
+}
+
 module.exports = {
-  TARGETS, HEADER_TARGETS, forTarget, applyString, applyHeaders, applyBody, describe, newId
+  TARGETS, HEADER_TARGETS, forTarget, applyString, applyHeaders, applyBody, describe, newId, test
 };
