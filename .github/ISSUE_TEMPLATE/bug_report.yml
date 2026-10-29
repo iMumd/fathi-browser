@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible problem with Fathi.
+body:
+  - type: markdown
+    attributes:
+      value: Do not include cookies, credentials, private targets, or unredacted traffic. Report security vulnerabilities through SECURITY.md.
+  - type: input
+    id: environment
+    attributes:
+      label: Version and platform
+      description: Copy diagnostics from Settings > About, and name the installation type.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include a safe public URL or a minimal local example when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or logs
+      description: Review and redact sensitive information before attaching evidence.

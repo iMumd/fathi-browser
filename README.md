@@ -1,104 +1,106 @@
-﻿![Fathi](docs/banner.png)
+<img src="assets/icon-128.png" width="56" height="56" alt="Fathi" />
 
 # Fathi
 
-A private desktop browser with a separate and coherent fingerprint in every tab.
-Built on Electron and Chromium for Windows, Ubuntu, and macOS.
+A private browser for deliberate security research.
 
-## Download
+Separate tab identities. Inspectable traffic. Local tools that keep you in control.
+Built with Electron and Chromium for Windows, Linux, and macOS.
 
-The latest release contains a Windows installer, a Windows portable build, a
-Linux archive, a macOS build, and the full source.
+[Download](https://github.com/iMumd/fathi-browser/releases/latest) ·
+[Research guide](docs/research-workspace.md) ·
+[Contribute](CONTRIBUTING.md) ·
+[Changelog](CHANGELOG.md)
 
-[Releases](https://github.com/iMumd/fathi-browser/releases)
+## A focused workspace
 
-## What it does
+| Browse | Inspect | Research |
+| --- | --- | --- |
+| In-memory tab sessions | Request and response capture | Session-only target scope |
+| Per-tab fingerprint profiles | Editable interception and replay | Passive response observations |
+| Mobile device presets | Match and Replace with payload tests | Response comparison |
+| Burp proxy preset | HAR, XML, JSON, and CSV exports | Offline encoding, JWT inspection, and SHA-256 |
 
-- A fresh identity for each tab. User agent, screen metrics, hardware, WebGL,
-  canvas, audio, timezone, and network details stay consistent inside the tab
-  and never carry over to the next one.
-- Incognito by default. Sessions live in memory and are destroyed when a tab
-  closes.
-- Request and response capture with export to HAR, XML, JSON, and CSV.
-- Any captured request can be copied as cURL, Python, PHP, Node, PowerShell,
-  Go, or raw HTTP.
-- Proxy configuration for each tab, with a Burp Suite preset.
-- Device emulation that matches user agent, viewport, screen, pixel ratio,
-  touch, and platform.
-- Chrome Web Store extensions.
-- English and Arabic interface.
-- Unsplash wallpapers shipped with the app.
+The research workspace, comparison, filtered/redacted exports, and refreshed
+About interface are **unreleased source changes**. The published release is
+still **1.0.2**. Updating a released installation does not install unreleased code.
 
-## Build
+### A practical workflow
 
-Requirements: Node.js 20 or newer.
+1. Open a target you are authorized to test. Each tab gets a separate session.
+2. Configure your proxy, or select **Use Burp** for the local Burp preset.
+3. Open **Research** in Settings and define included and excluded hosts.
+4. Open **Flow** to filter traffic, inspect headers, and review security notes.
+5. Pin one response as a baseline, open another, and select **Compare**.
+6. Export only the filtered records. Use **Redacted JSON** when sharing context.
 
-```
-npm install
-npm start
-```
+Research tools do not automatically crawl, scan, or attack targets. Passive
+notes do not issue extra requests and are not confirmed vulnerability reports.
+JWT inspection decodes claims; it does not verify their signature.
 
-Windows:
+## Privacy, with clear boundaries
 
-```
-npm run dist:win
-```
+- Browsing sessions, captured traffic, scope, toolbox input, and comparison
+  baselines stay in memory. Closing a tab removes its captured traffic and any
+  baseline pinned from it; exiting clears the research workspace.
+- Preferences are stored in `fathi-config.json`. User-configured proxy details
+  can be sensitive. No proxy credentials are bundled.
+- Exports, downloads, and clipboard contents are explicit exceptions. They can
+  outlive a session and are your responsibility to review and remove.
+- Redacted exports omit URL credentials, paths, queries, fragments, header
+  values, and bodies. Hostnames, header names, and traffic metadata remain.
+  Redaction is not anonymization.
+- Fingerprint profiles are research tools, not a guarantee of anonymity,
+  undetectability, or protection from every form of tracking.
 
-Linux:
+## Install and update
 
-```
-npm run dist:linux
-```
+Use the [latest release](https://github.com/iMumd/fathi-browser/releases/latest).
+Windows offers an installer and a portable executable. Linux offers an x64
+archive. macOS offers Intel and Apple Silicon archives.
 
-macOS:
+Save your browsing work before running an updater. Commands install the latest
+**published** release, verify its download checksum and version, and preserve
+preferences. Windows installed builds also support in-app installation.
 
-```
-npm run dist:mac
-```
-
-Release builds for all three platforms are produced by GitHub Actions when a
-version tag is pushed.
-
-## Privacy
-
-Fathi keeps no history, cache, or cookies after a tab or the app closes. Only
-`fathi-config.json` is stored, and it holds preferences alone. Network capture
-stays in memory until you export it.
-
-## About
-
-Fathi is an independent project by [iMumd](https://github.com/iMumd), focused
-on private browsing, fingerprint research, and request inspection.
-
-- GitHub: [github.com/iMumd](https://github.com/iMumd)
-- Telegram: [@aweing](https://t.me/aweing)
-- Channel: [Mumdthoughts](https://t.me/Mumdthoughts)
-- Email: [hi@mumd.dev](mailto:hi@mumd.dev)
-
-Bundled photography from [Unsplash](https://unsplash.com).
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-## Updates
-
-### Linux (one command)
+### Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh | bash
 ```
 
-Paste the command exactly as shown. Do not add `bash` before `curl`; the script is
-already piped into `bash`. The script asks for your sudo password, downloads the
-latest Linux archive, and installs it to `/opt/fathi`.
-Python 3 is required. The updater verifies the download checksum and packaged
-version before replacing files. It closes running Fathi processes, preserves
-preferences, and repairs application-menu and desktop launchers to use
-`/opt/fathi/fathi`. Save your work first. Run `fathi` or use the repaired shortcut
-afterward, not an older executable in a manually extracted folder.
+Requires Python 3 and sudo. Installs to `/opt/fathi`, closes old Fathi processes,
+and repairs application-menu and desktop launchers. Launch with `fathi` afterward,
+not an older executable from a manually extracted directory. Paste the command
+as shown; do not put `bash` before `curl`.
 
-To read the script before running it:
+### Windows
+
+```powershell
+irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
+```
+
+Reuses an existing installed directory, waits for the installer, and verifies
+the installed version. Close Fathi first and approve elevation if requested.
+
+For a portable copy, specify the original executable:
+
+```powershell
+$env:FATHI_PORTABLE_PATH = 'C:\Tools\Fathi-Portable.exe'
+irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
+```
+
+### macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh | bash
+```
+
+Requires Python 3. Selects the host architecture and replaces
+`/Applications/Fathi.app`. Unsigned builds may require approval in Privacy & Security.
+
+<details>
+<summary>Inspect the script before running it</summary>
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh
@@ -106,39 +108,42 @@ less update-fathi.sh
 bash update-fathi.sh
 ```
 
-### Windows (PowerShell)
+For Windows, download and review `tools/update-fathi.ps1` before executing it.
+Only run scripts you trust.
 
-```powershell
-irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
-```
+</details>
 
-The updater verifies the checksum, waits for installation to finish, and checks
-the installed version. An existing installation directory is reused. Close Fathi
-before running the command and approve elevation if Windows requests it.
+Release assets also include `latest*.yml` and blockmaps for updater support.
+These are not extra installers. Fathi checks for updates and shows release
+highlights once on first launch of each installed version.
 
-For a portable copy, point to the original executable, not its temporary
-extraction directory:
+## Develop
 
-```powershell
-$env:FATHI_PORTABLE_PATH = 'C:\Tools\Fathi-Portable.exe'
-irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
-```
-
-### macOS (one command)
+Use Node.js 22 or newer.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh | bash
+npm ci
+npm test
+npm start
 ```
 
-Python 3 is required. The updater selects Intel or Apple Silicon, verifies the
-checksum and application version, and replaces `/Applications/Fathi.app` while
-preserving preferences. Unsigned builds may need approval in Privacy & Security.
-Windows installed builds support in-app installation; Linux, portable Windows,
-and unsigned macOS builds offer the appropriate update command instead.
+| Build | Command |
+| --- | --- |
+| Windows | `npm run dist:win` |
+| Linux | `npm run dist:linux` |
+| macOS | `npm run dist:mac` |
 
-New releases show an update banner. The first launch of each installed version
-also shows a short What's New page once. Update metadata (`latest*.yml`) and
-blockmaps are release support files, not additional installers.
+Build on the corresponding operating system. Pull requests run tests on all
+three platforms. Release builds are separate and only triggered by version tags.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for E2E checks and review conventions.
 
-You can also download the latest release manually from [GitHub Releases](https://github.com/iMumd/fathi-browser/releases). The app also checks for updates on launch.
+## Independent by design
 
+Created by [iMumd](https://github.com/iMumd), for private browsing, fingerprint
+research, and request inspection.
+
+[GitHub](https://github.com/iMumd) · [Telegram](https://t.me/aweing) ·
+[Mumdthoughts](https://t.me/Mumdthoughts) · [Email](mailto:hi@mumd.dev)
+
+Bundled photography from [Unsplash](https://unsplash.com).
+Security reports: [SECURITY.md](SECURITY.md). Licensed under [MIT](LICENSE).

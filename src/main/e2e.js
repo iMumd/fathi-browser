@@ -186,6 +186,42 @@ async function run(win) {
   add('rules collapse and preview real payloads', updateUi.collapsed && updateUi.test.ok && updateUi.test.output === 'updated payload', JSON.stringify(updateUi));
   add('new update alerts survive a previous latest result', updateUi.alerted && updateUi.hidden, JSON.stringify(updateUi));
   add('release notes appear once per version', updateUi.firstNotes && updateUi.notesVisible && !updateUi.secondNotes, JSON.stringify(updateUi));
+  const researchUi = await ui.executeJavaScript(`(async () => {
+    openSettings('research');
+    document.getElementById('scope-include').value = 'example.com\\n*.example.com';
+    document.getElementById('scope-exclude').value = 'accounts.example.com';
+    document.getElementById('scope-intercept').checked = true;
+    document.getElementById('scope-save').click();
+    await new Promise(r => setTimeout(r, 150));
+    const applied = researchWorkspace.scope.onlyIntercept && Research.inScope('https://api.example.com', researchWorkspace.scope) && !Research.inScope('https://accounts.example.com', researchWorkspace.scope);
+    const input = document.getElementById('research-input');
+    input.value = '<svg onload="window.__researchXss=1">فتحي</svg>';
+    input.dispatchEvent(new Event('input'));
+    const op = document.getElementById('research-operation'); op.value = 'urlEncode'; op.dispatchEvent(new Event('change'));
+    document.getElementById('research-run').click();
+    await new Promise(r => setTimeout(r, 150));
+    const transformed = document.getElementById('research-output').textContent.includes('%3Csvg') && !window.__researchXss;
+    document.getElementById('research-clear').click();
+    const cleared = researchWorkspace.input === '' && researchWorkspace.output === '';
+    const reset = await window.api.research.setScope({}); researchWorkspace.scope = reset.scope;
+    const escaped = document.createElement('div');
+    renderSecurityPanel({ url: 'https://example.com', status: 200, mimeType: 'text/html', responseHeaders: { 'set-cookie': '<svg onload=bad>=secret; SameSite=None' } }, escaped);
+    const passive = escaped.querySelectorAll('.security-finding').length > 0 && escaped.querySelectorAll('svg').length === 0 && !escaped.textContent.includes('=secret');
+    researchWorkspace.baseline = { wcId: -1, method: 'GET', url: 'https://example.com', status: 200, body: 'old', responseHeaders: {} };
+    const comparePanel = document.createElement('div'); document.getElementById('settings-body').appendChild(comparePanel);
+    renderComparisonPanel({ status: 201, body: 'new', responseHeaders: { Test: '<script>bad</script>' } }, comparePanel);
+    const compared = comparePanel.querySelector('.diff-before').textContent === 'old' && comparePanel.querySelector('.diff-after').textContent === 'new' && !comparePanel.querySelector('script');
+    clearResearchForTab(-1);
+    const purged = researchWorkspace.baseline === null;
+    const saved = (await window.api.settings.get()).settings;
+    const noPersistence = !('scope' in saved) && !('research' in saved);
+    closeSettings();
+    return { applied, transformed, cleared, passive, compared, purged, noPersistence };
+  })()`);
+  add('research scope applies exclusions and remains session-only', researchUi.applied && researchUi.noPersistence, JSON.stringify(researchUi));
+  add('offline toolbox transforms text safely and clears sensitive data', researchUi.transformed && researchUi.cleared, JSON.stringify(researchUi));
+  add('security notes escape untrusted evidence', researchUi.passive, JSON.stringify(researchUi));
+  add('response comparisons render safely and purge the baseline', researchUi.compared && researchUi.purged, JSON.stringify(researchUi));
   trace('check 3: second tab');
   await ui.executeJavaScript(`document.getElementById('newtab-btn').click()`);
   await sleep(1800);
@@ -269,6 +305,19 @@ async function run(win) {
   );
   add('interceptor pauses requests', pausedRows > 0, 'rows=' + pausedRows);
   if (pausedRows > 0) {
+    const topActions = await ui.executeJavaScript(`(async () => {
+      devOpen('intercept'); await ixOpenItem(ix.items[0].id);
+      ixRenderHeaderRows(Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['X-Test-' + i, 'test value'])));
+      const scroller = document.querySelector('#pane-intercept .ix-body');
+      const bar = document.querySelector('.ix-action-bar');
+      const aboveEditor = bar.getBoundingClientRect().bottom <= document.getElementById('ix-url').getBoundingClientRect().top;
+      scroller.scrollTop = 300;
+      await new Promise(r => requestAnimationFrame(r));
+      const offset = bar.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      return { aboveEditor, sticky: offset >= -1 && offset <= 14, unique: document.querySelectorAll('#ix-forward').length === 1 && document.querySelectorAll('#ix-forward-all').length === 1 };
+    })()`);
+    add('interception actions stay above the editor and visible while scrolling', topActions.aboveEditor && topActions.sticky && topActions.unique, JSON.stringify(topActions));
+    fs.writeFileSync(path.join(OUT_DIR, 'e2e-intercept-actions.png'), (await ui.capturePage()).toPNG());
     await ui.executeJavaScript(`document.getElementById('ix-forward-all').click()`);
     await sleep(800);
   }
@@ -291,6 +340,13 @@ async function run(win) {
   await sleep(500);
   const flowRows = await ui.executeJavaScript(`document.querySelectorAll('#net-list .net-row').length`);
   add('flow panel lists requests', flowRows > 0, 'rows=' + flowRows);
+  const flowFilters = await ui.executeJavaScript(`(() => {
+    document.getElementById('net-method').value = 'DELETE'; flowRender();
+    const filtered = document.querySelectorAll('#net-list .net-row').length === 0;
+    document.getElementById('net-method').value = ''; flowRender();
+    return filtered && document.querySelectorAll('#net-list .net-row').length > 0;
+  })()`);
+  add('Flow method filters narrow captured traffic without clearing it', flowFilters);
 
   const har = await ui.executeJavaScript(`(async () => {
     const wcId = document.querySelector('webview.active').getWebContentsId();
@@ -353,6 +409,23 @@ async function run(win) {
   }
 
   /* ---- 6. fingerprint difference between the two tabs (from the UI state) */
+  await ui.executeJavaScript(`openSettings('about'); true`);
+  await sleep(250);
+  fs.writeFileSync(path.join(OUT_DIR, 'e2e-about-dark.png'), (await ui.capturePage()).toPNG());
+  await ui.executeJavaScript(`(async () => { await setTheme('light'); await setLanguage('ar'); openSettings('about'); })()`);
+  await sleep(250);
+  fs.writeFileSync(path.join(OUT_DIR, 'e2e-about-light-ar.png'), (await ui.capturePage()).toPNG());
+  const aboutLayout = await ui.executeJavaScript(`({ light: document.documentElement.dataset.theme === 'light', rtl: document.documentElement.classList.contains('rtl'), overflow: document.getElementById('settings-body').scrollWidth > document.getElementById('settings-body').clientWidth + 1 })`);
+  add('About supports light Arabic layout without horizontal overflow', aboutLayout.light && aboutLayout.rtl && !aboutLayout.overflow, JSON.stringify(aboutLayout));
+  await ui.executeJavaScript(`(async () => { await setTheme('dark'); await setLanguage('en'); openSettings('research'); })()`);
+  await sleep(250);
+  fs.writeFileSync(path.join(OUT_DIR, 'e2e-research.png'), (await ui.capturePage()).toPNG());
+  const researchLayout = await ui.executeJavaScript(`(() => {
+    const body = document.getElementById('settings-body');
+    return body.scrollWidth <= body.clientWidth + 1 && !!document.getElementById('research-run');
+  })()`);
+  add('research workspace fits the settings panel', researchLayout);
+  await ui.executeJavaScript(`closeSettings(); true`);
   const fps = await ui.executeJavaScript(`(async () => {
     const out = [];
     for (const t of window.__fathiTabs || []) out.push(t);

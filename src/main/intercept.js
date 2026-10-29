@@ -15,6 +15,7 @@
  */
 const settings = require('./settings');
 const rewrite = require('./rewrite');
+const researchScope = require('./research-scope');
 
 const AUTO_FORWARD_MS = 120000;   // paused request lifetime
 const MAX_PAUSED = 80;            // hard stop on unbounded pause growth
@@ -187,7 +188,7 @@ async function onRequestPaused(wc, params) {
     wc
   };
 
-  if (!enabled || !isWebUrl(rec.url) || !matchesFilter(rec.url)) {
+  if (!enabled || !isWebUrl(rec.url) || !matchesFilter(rec.url) || !researchScope.allows(rec.url)) {
     try { await wc.debugger.sendCommand('Fetch.continueRequest', { requestId }); } catch {}
     return;
   }

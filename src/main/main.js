@@ -62,6 +62,7 @@ const intercept = require('./intercept');
 const network = require('./network');
 const tor = require('./tor');
 const updater = require('./updater');
+const researchScope = require('./research-scope');
 
 /* ----------------------------------------------------------------- state */
 
@@ -549,6 +550,11 @@ ipcMain.handle('fathi:device:emulate', async (event, { wcId, viewport } = {}) =>
 });
 
 /* --- match and replace rules */
+ipcMain.handle('fathi:research:scope', () => ok({ scope: researchScope.get() }));
+ipcMain.handle('fathi:research:set-scope', (_event, input) => {
+  try { return ok({ scope: researchScope.set(input) }); }
+  catch (error) { return fail(error); }
+});
 ipcMain.handle('fathi:rules:list', () => ok({ rules: settings.get().matchReplace || [] }));
 
 ipcMain.handle('fathi:rules:test', async (_event, input) => {
@@ -610,8 +616,8 @@ ipcMain.handle('fathi:net:export', async (event, opts = {}) => {
   catch (e) { return fail(e); }
 });
 
-ipcMain.handle('fathi:net:serialize', (event, { format = 'har', wcId, all } = {}) => {
-  try { return ok({ text: network.serialize(format, { wcId, all: !!all }) }); }
+ipcMain.handle('fathi:net:serialize', (event, { format = 'har', wcId, all, ids } = {}) => {
+  try { return ok({ text: network.serialize(format, { wcId, all: !!all, ids }) }); }
   catch (e) { return fail(e); }
 });
 
@@ -626,6 +632,8 @@ ipcMain.handle('fathi:settings:get', () => ok({
   info: {
     version: app.getVersion(),
     packaged: app.isPackaged && !process.argv.includes('--fathi-e2e'),
+    platform: process.platform,
+    arch: process.arch,
     chrome: process.versions.chrome,
     electron: process.versions.electron
   }

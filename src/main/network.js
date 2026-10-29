@@ -95,6 +95,7 @@ function attach(wc) {
   wc.on('devtools-closed', kick);
 
   wc.once('destroyed', () => {
+    total -= tabs.get(wc.id)?.reqs.size || 0;
     tabs.delete(wc.id);
     scheduleFlush();
   });
@@ -112,6 +113,7 @@ async function onMessage(wc, method, params) {
     const rec = t && t.reqs.get(params.requestId);
     if (!rec) return;
     t.dirty = true;
+    rec.sent = false;
     const r = params.response || {};
     rec.status = r.status;
     rec.statusText = r.statusText || '';
@@ -132,11 +134,13 @@ async function onMessage(wc, method, params) {
     const rec = t && t.reqs.get(params.requestId);
     if (rec) {
       t.dirty = true;
+      rec.sent = false;
       rec.extraResponseHeaders = rec.extraResponseHeaders || {};
       for (const [k, v] of Object.entries(params.headers || {})) {
         if (!(k in rec.extraResponseHeaders)) rec.extraResponseHeaders[k] = v;
       }
       rec.status = params.statusCode || rec.status;
+      scheduleFlush();
     }
     return;
   }
@@ -145,6 +149,7 @@ async function onMessage(wc, method, params) {
     const rec = t && t.reqs.get(params.requestId);
     if (!rec || rec.done) return;
     rec.done = true;
+    rec.sent = false;
     t.dirty = true;
     rec.finishedAt = Date.now();
     rec.encodedSize = params.encodedDataLength || rec.encodedSize || 0;
@@ -165,6 +170,7 @@ async function onMessage(wc, method, params) {
     if (!rec) return;
     rec.done = true;
     rec.failed = true;
+    rec.sent = false;
     t.dirty = true;
     rec.errorText = params.errorText || 'failed';
     rec.finishedAt = Date.now();
@@ -192,7 +198,10 @@ function onRequest(wc, params) {
       prev.timing = buildTiming(params.redirectResponse.timing, prev);
       prev.size = prev.size || 0;
     }
+    prev.sent = false;
+    prev.bodyFailed = true;
     t.reqs.delete(params.requestId);
+    t.reqs.set(`${params.requestId}:redirect:${prev.id}`, prev);
   }
 
   const meta = safeMeta(wc) || {};
@@ -246,7 +255,7 @@ function trimTab(t) {
   while (t.order.length > MAX_PER_TAB) {
     const id = t.order.shift();
     for (const [rid, rec] of t.reqs) {
-      if (rec.id === id) { t.reqs.delete(rid); break; }
+      if (rec.id === id) { t.reqs.delete(rid); total -= 1; break; }
     }
   }
 }
@@ -266,7 +275,7 @@ function trimTotal() {
       }
     }
     if (!oldest) break;
-    oldestTab.reqs.delete(oldest.requestId);
+    for (const [key, rec] of oldestTab.reqs) if (rec === oldest) { oldestTab.reqs.delete(key); break; }
     oldestTab.order.shift();
     total -= 1;
   }
@@ -339,7 +348,7 @@ function summary(rec) {
   };
 }
 
-function collect(wcId, all) {
+function collect(wcId, all, ids) {
   const out = [];
   if (all) {
     for (const t of tabs.values()) for (const r of t.reqs.values()) out.push(r);
@@ -348,7 +357,9 @@ function collect(wcId, all) {
     if (t) for (const r of t.reqs.values()) out.push(r);
   }
   out.sort((a, b) => a.startedAt - b.startedAt);
-  return out;
+  if (!Array.isArray(ids)) return out;
+  const selected = new Set(ids);
+  return out.filter((record) => selected.has(record.id));
 }
 
 function listSummaries(wcId, all) {
@@ -395,7 +406,7 @@ function stats(wcId, all) {
 
 /* ----------------------------------------------------------------- export */
 
-/* Only records the renderer has not seen yet are pushed, and the body is no
+/* Only new or changed records are pushed, and the body is no
    longer fetched automatically. Both changes matter: the old flush serialised
    up to 400 summaries per tab every 220 ms during a page load, which was the
    single largest source of UI stalls. Bodies are fetched on demand from
@@ -514,7 +525,7 @@ function toHarResponse(rec) {
 }
 
 function har(opts = {}) {
-  const recs = collect(opts.wcId, !!opts.all);
+  const recs = collect(opts.wcId, !!opts.all, opts.ids);
   const entries = recs.map((rec) => {
     const t = rec.timing || emptyTiming();
     return {
@@ -562,7 +573,7 @@ function cdata(value) {
 }
 
 function xml(opts = {}) {
-  const recs = collect(opts.wcId, !!opts.all);
+  const recs = collect(opts.wcId, !!opts.all, opts.ids);
   const out = [];
   out.push('<?xml version="1.0" encoding="UTF-8"?>');
   out.push(`<fathi-session exportedAt="${new Date().toISOString()}" count="${recs.length}" version="1.0">`);
@@ -592,8 +603,12 @@ function xml(opts = {}) {
 }
 
 function csv(opts = {}) {
-  const recs = collect(opts.wcId, !!opts.all);
-  const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const recs = collect(opts.wcId, !!opts.all, opts.ids);
+  const esc = (v) => {
+    let text = String(v == null ? '' : v);
+    if (/^[\s]*[=+@-]/.test(text) || /^[\t\r\n]/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
   const rows = [['startedAt', 'method', 'url', 'status', 'type', 'mime', 'size', 'timeMs', 'dns', 'connect', 'ssl', 'send', 'wait', 'failed', 'error'].join(',')];
   for (const r of recs) {
     const t = r.timing || emptyTiming();
@@ -608,21 +623,23 @@ function csv(opts = {}) {
 }
 
 const FORMATS = {
+  safejson: { ext: 'json', name: 'Redacted JSON', mime: 'application/json' },
   har: { ext: 'har', name: 'HTTP Archive', mime: 'application/json' },
   json: { ext: 'json', name: 'JSON', mime: 'application/json' },
   xml: { ext: 'xml', name: 'XML', mime: 'application/xml' },
   csv: { ext: 'csv', name: 'CSV', mime: 'text/csv' }
 };
 
-function serialize(format, opts) {
+function serialize(format, opts = {}) {
   switch (format) {
+    case 'safejson': return JSON.stringify({ redacted: true, notice: 'Hosts and header names remain. Review before sharing.', requests: collect(opts.wcId, !!opts.all, opts.ids).map(require('../shared/research').safeRecord) }, null, 2);
     case 'xml': return xml(opts);
     case 'csv': return csv(opts);
     case 'json':
       return JSON.stringify({
         exportedAt: new Date().toISOString(),
-        count: collect(opts.wcId, !!opts.all).length,
-        requests: collect(opts.wcId, !!opts.all)
+        count: collect(opts.wcId, !!opts.all, opts.ids).length,
+        requests: collect(opts.wcId, !!opts.all, opts.ids)
       }, null, 2);
     case 'har':
     default:

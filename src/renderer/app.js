@@ -498,6 +498,8 @@ async function closeTab(id, opts = {}) {
   const tab = state.tabs[idx];
 
   try { tab.wv.remove(); } catch {}
+  clearResearchForTab(tab.wcId);
+  if (flow.detail?.wcId === tab.wcId) flowBack();
   try { tab.el.remove(); } catch {}
   window.api.tab.destroy(tab.partition);
 
@@ -1166,6 +1168,8 @@ async function ixOpenItem(id) {
   ix.current = id;
   $('#ix-list').classList.add('hidden');
   $('#ix-detail').classList.remove('hidden');
+  $('#pane-intercept .ix-body').scrollTop = 0;
+  $('.ix-action-bar').setAttribute('aria-label', t('intercept.actions'));
   $('#ix-repeat-out')?.remove();
   $('#ix-url').value = rec.url;
   $('#ix-method').value = rec.method;
@@ -1367,11 +1371,17 @@ function netRow(r) {
     </button>`;
 }
 
-function flowRender() {
+function flowVisibleRecords() {
   const needle = flow.filter.trim().toLowerCase();
-  const list = needle
-    ? flow.records.filter((r) => `${r.url} ${r.method} ${r.status} ${r.mimeType}`.toLowerCase().includes(needle))
-    : flow.records;
+  const method = $('#net-method').value;
+  const status = $('#net-status-filter').value;
+  return flow.records.filter((r) => (!needle || `${r.url} ${r.method} ${r.status} ${r.mimeType}`.toLowerCase().includes(needle)) &&
+    (!method || r.method === method) && (!status || (status === 'failed' ? r.failed : String(r.status).startsWith(status))) &&
+    (!$('#net-in-scope').checked || Research.inScope(r.url, researchWorkspace.scope)));
+}
+
+function flowRender() {
+  const list = flowVisibleRecords();
   const st = calcStats(list);
 
   $('#net-total').textContent = String(st.count);
@@ -1443,6 +1453,8 @@ function flowRenderDetail() {
   const host = (() => { try { return new URL(r.url).host; } catch { return ''; } })();
   const tabs = [
     ['analysis', 'flow.analysis'],
+    ['security', 'research.passive'],
+    ['comparison', 'research.comparison'],
     ['request', 'flow.request'],
     ['response', 'flow.response'],
     ['timing', 'flow.timing'],
@@ -1470,6 +1482,7 @@ function flowRenderDetail() {
       <button class="btn sm" data-copy="raw">${esc(t('flow.copyRaw'))}</button>
       <button class="btn sm" data-copy="python">Python</button>
       <button class="btn sm" data-copy="php">PHP</button>
+      <button class="btn sm" id="net-baseline">${esc(t('research.pinBaseline'))}</button>
     </div>
     <div class="net-tabs">
       ${tabs.map(([id, key]) => `<button class="net-tab ${flow.detailTab === id ? 'active' : ''}" data-nt="${id}">${esc(t(key))}</button>`).join('')}
@@ -1477,6 +1490,10 @@ function flowRenderDetail() {
     <div class="net-panel" id="net-panel"></div>`;
 
   $('#net-back').addEventListener('click', flowBack);
+  $('#net-baseline').addEventListener('click', () => {
+    researchWorkspace.baseline = structuredClone(r);
+    toast(t('research.baselinePinned'), 'ok');
+  });
   d.querySelectorAll('.net-tab').forEach((b) => {
     b.addEventListener('click', () => {
       flow.detailTab = b.dataset.nt;
@@ -1498,6 +1515,8 @@ function flowRenderPanel() {
   const r = flow.detail;
   const panel = $('#net-panel');
   if (!r || !panel) return;
+  if (flow.detailTab === 'security') { renderSecurityPanel(r, panel); return; }
+  if (flow.detailTab === 'comparison') { renderComparisonPanel(r, panel); return; }
 
   if (flow.detailTab === 'request') {
     panel.innerHTML = `
@@ -1636,7 +1655,8 @@ function clip(text) {
 async function flowSave() {
   const format = $('#net-format').value;
   const all = $('#net-scope').value === 'all';
-  const res = await window.api.net.export({ format, wcId: flowWcId(), all });
+  if (format !== 'safejson' && !window.confirm(t('research.rawExportWarning'))) return;
+  const res = await window.api.net.export({ format, wcId: flowWcId(), all, ids: flowVisibleRecords().map((r) => r.id) });
   if (res && res.ok) {
     if (res.path) toast(t('flow.saved').replace('{path}', res.path), 'ok');
   } else if (res && res.error) {
@@ -1647,6 +1667,8 @@ async function flowSave() {
 async function flowClear() {
   const all = $('#net-scope').value === 'all';
   await window.api.net.clear({ wcId: flowWcId(), all });
+  if (all) researchWorkspace.baseline = null;
+  else clearResearchForTab(flowWcId());
   flow.records = [];
   flow.selected = null;
   flow.detail = null;
@@ -1773,6 +1795,8 @@ $('#net-scope').addEventListener('change', (e) => {
 });
 
 $('#net-save').addEventListener('click', flowSave);
+['#net-method', '#net-status-filter', '#net-in-scope'].forEach((selector) => $(selector).addEventListener('change', flowRender));
+$('#net-scope-edit').addEventListener('click', () => openSettings('research'));
 $('#net-clear').addEventListener('click', flowClear);
 
 /* Escape closes the drawer from anywhere. */
@@ -2230,6 +2254,7 @@ const CHECK_LINKS = [
 function renderSection(section) {
   const body = $('#settings-body');
   const S = state.settings || {};
+  if (section === 'research') { renderResearch(); return; }
 
   if (section === 'whatsnew') {
     body.innerHTML = `<div class="card release-notes"><span class="badge accent">Fathi ${esc(state.info.version)}</span>
@@ -2840,15 +2865,20 @@ function renderSection(section) {
   /* ------------------------------- about ------------------------------- */
   const info = state.info || {};
   body.innerHTML = `
-    <div class="card about-hero">
+    <div class="card about-hero about-studio">
       <img src="../../assets/icon-128.png" alt="" />
-      <h2>Fathi</h2>
+      <div class="about-intro"><span class="eyebrow">INDEPENDENT / OPEN SOURCE</span><h2>Fathi</h2>
       <p>${esc(t('about.tagline'))}</p>
-      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="about-version-row">
         <span class="badge accent">${esc(t('about.version', { v: info.version || '1.0.0' }))}</span>
         <button class="btn sm" id="about-update" type="button">${esc(t('update.check'))}</button>
         <span id="about-update-text" class="muted">${esc(updateStatusText(updateState))}</span>
       </div>
+      </div>
+    </div>
+
+    <div class="about-principles">
+      ${['inspect', 'isolate', 'control'].map((key, i) => `<article><span class="eyebrow">0${i + 1}</span><h3>${esc(t('about.principle.' + key))}</h3><p>${esc(t('about.principle.' + key + 'Hint'))}</p></article>`).join('')}
     </div>
 
     <div class="card credit-card">
@@ -2891,9 +2921,11 @@ function renderSection(section) {
 
     <div class="card">
       <h3>${esc(t('about.engine'))}</h3>
+      <p class="hint">${esc(t('about.diagnosticsHint'))}</p>
       <div class="kv"><span class="k">${esc(t('about.chromium'))}</span><span class="v">${esc(info.chrome || '')}</span></div>
       <div class="kv"><span class="k">${esc(t('about.electron'))}</span><span class="v">${esc(info.electron || '')}</span></div>
       <div class="kv"><span class="k">${esc(t('about.system'))}</span><span class="v">${esc((info.platform || '') + ' ' + (info.arch || ''))}</span></div>
+      <div class="btn-row"><button class="btn" id="about-diagnostics">${esc(t('about.copyDiagnostics'))}</button><button class="btn ghost" id="about-repository">${esc(t('about.repository'))}</button></div>
     </div>
 
     <div class="card">
@@ -2921,6 +2953,8 @@ function renderSection(section) {
   openLink('about-github', 'https://github.com/iMumd');
   openLink('about-channel', 'https://t.me/Mumdthoughts');
   openLink('about-email', 'mailto:hi@mumd.dev');
+  openLink('about-repository', 'https://github.com/iMumd/fathi-browser');
+  $('#about-diagnostics').addEventListener('click', () => copyText(`Fathi: ${info.version}\nElectron: ${info.electron}\nChromium: ${info.chrome}\nPlatform: ${info.platform} ${info.arch}`));
 
   const checkBtn = $('#about-update');
   if (checkBtn) {
@@ -3231,6 +3265,8 @@ window.addEventListener('keydown', (e) => {
   applyTheme();
   applyStatic();
   bindUpdateUi();
+  const researchScope = await window.api.research.scope();
+  if (researchScope.ok) researchWorkspace.scope = researchScope.scope;
 
   try {
     const st = await window.api.intercept.state();

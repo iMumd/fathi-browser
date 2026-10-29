@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Move interception actions above the request editor and keep them visible
+  while scrolling; place Forward all beside the interceptor toggle.
+- Add a session-only research workspace with include/exclude target scope and
+  optional in-scope interception.
+- Add an offline UTF-8, Base64, URL, JSON, JWT, and SHA-256 toolbox.
+- Add contextual passive response observations with evidence and limitations.
+- Compare captured response status, headers, and changed body segments.
+- Filter Flow by method, status, and target scope; export matching records.
+- Add redacted JSON exports and raw-export warnings; guard CSV formula cells.
+- Fix stale live request summaries, redirect history, and recorder accounting.
+- Refresh About with flat product principles and non-sensitive diagnostics.
+- Reorganize documentation and expand pull-request CI across three platforms.
+
 ## 1.0.2
 
 - Improve Burp, SOCKS port, rule collapse, and keyboard shortcut controls.
