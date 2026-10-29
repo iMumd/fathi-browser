@@ -14,7 +14,7 @@ const REPO = 'iMumd/fathi-browser';
 const RELEASE_PAGE = `https://github.com/${REPO}/releases/latest`;
 const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const UPDATE_COMMAND = process.platform === 'win32'
-  ? `irm https://raw.githubusercontent.com/${REPO}/main/tools/update-fathi.ps1 | iex`
+  ? `${process.env.PORTABLE_EXECUTABLE_FILE ? `$env:FATHI_PORTABLE_PATH='${process.env.PORTABLE_EXECUTABLE_FILE.replace(/'/g, "''")}'; ` : ''}irm https://raw.githubusercontent.com/${REPO}/main/tools/update-fathi.ps1 | iex`
   : `curl -fsSL https://raw.githubusercontent.com/${REPO}/main/tools/update-fathi.sh | bash`;
 
 /** Portable Windows builds report their own executable through this variable. */
@@ -183,6 +183,10 @@ function init(win) {
   // Automated tests should not touch the network.
   if (app.isPackaged && !process.argv.includes('--fathi-e2e')) {
     setTimeout(() => { check(); }, 5000);
+    const timer = setInterval(() => {
+      if (!['checking', 'downloading', 'ready'].includes(state.status)) check();
+    }, 4 * 60 * 60 * 1000);
+    timer.unref();
   }
   return state;
 }

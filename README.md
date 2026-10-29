@@ -92,6 +92,11 @@ curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/upda
 Paste the command exactly as shown. Do not add `bash` before `curl`; the script is
 already piped into `bash`. The script asks for your sudo password, downloads the
 latest Linux archive, and installs it to `/opt/fathi`.
+Python 3 is required. The updater verifies the download checksum and packaged
+version before replacing files. It closes running Fathi processes, preserves
+preferences, and repairs application-menu and desktop launchers to use
+`/opt/fathi/fathi`. Save your work first. Run `fathi` or use the repaired shortcut
+afterward, not an older executable in a manually extracted folder.
 
 To read the script before running it:
 
@@ -107,7 +112,33 @@ bash update-fathi.sh
 irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
 ```
 
-The updater launches the installer with elevation when needed.
+The updater verifies the checksum, waits for installation to finish, and checks
+the installed version. An existing installation directory is reused. Close Fathi
+before running the command and approve elevation if Windows requests it.
+
+For a portable copy, point to the original executable, not its temporary
+extraction directory:
+
+```powershell
+$env:FATHI_PORTABLE_PATH = 'C:\Tools\Fathi-Portable.exe'
+irm https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.ps1 | iex
+```
+
+### macOS (one command)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iMumd/fathi-browser/main/tools/update-fathi.sh | bash
+```
+
+Python 3 is required. The updater selects Intel or Apple Silicon, verifies the
+checksum and application version, and replaces `/Applications/Fathi.app` while
+preserving preferences. Unsigned builds may need approval in Privacy & Security.
+Windows installed builds support in-app installation; Linux, portable Windows,
+and unsigned macOS builds offer the appropriate update command instead.
+
+New releases show an update banner. The first launch of each installed version
+also shows a short What's New page once. Update metadata (`latest*.yml`) and
+blockmaps are release support files, not additional installers.
 
 You can also download the latest release manually from [GitHub Releases](https://github.com/iMumd/fathi-browser/releases). The app also checks for updates on launch.
 
