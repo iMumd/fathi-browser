@@ -5,7 +5,11 @@ on:
   pull_request:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -13,6 +17,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node tools/test-rules.js
+      - run: npm test
       - run: bash -n tools/update-fathi.sh
       - run: bash tools/test-updater.sh
+        if: runner.os == 'Linux'
+      - name: Parse PowerShell updater
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/tools/update-fathi.ps1", [ref]$null, [ref]$parseErrors) | Out-Null
+          if ($parseErrors) { $parseErrors; exit 1 }

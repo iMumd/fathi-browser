@@ -1424,6 +1424,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .about-studio { display: flex; align-items: center; gap: 24px; text-align: start; padding: 28px; border-radius: 6px; }
 .about-studio img { width: 72px; height: 72px; border-radius: 0; }
 .about-studio h2 { font-size: 32px; letter-spacing: -1px; text-transform: none; margin: 8px 0; }
+.about-studio h2, .about-principles h3, .credit-text b { color: var(--text); }
 .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: 1.8px; font-weight: 600; }
 .about-version-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .about-principles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; }

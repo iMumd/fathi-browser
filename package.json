@@ -25,6 +25,7 @@
   "license": "MIT",
   "main": "src/main/main.js",
   "scripts": {
+    "test": "node tools/check-syntax.js && node --test tools/test-research.js tools/test-network.js && node tools/test-rules.js",
     "start": "electron .",
     "icons": "node tools/make-icons.js && node tools/make-installer-art.js",
     "dist:win": "electron-builder --win nsis portable --x64 --publish never",
