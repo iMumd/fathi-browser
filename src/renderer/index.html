@@ -188,6 +188,12 @@
              data-i18n-ph="flow.filter" placeholder="Filter URL, method or status" />
     </div>
 
+    <div class="research-filters">
+      <select id="net-method" aria-label="HTTP method"><option value="" data-i18n="research.allMethods">All methods</option><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>OPTIONS</option><option>HEAD</option></select>
+      <select id="net-status-filter" aria-label="HTTP status"><option value="" data-i18n="research.allStatuses">All statuses</option><option value="2">2xx</option><option value="3">3xx</option><option value="4">4xx</option><option value="5">5xx</option><option value="failed" data-i18n="research.failed">Failed</option></select>
+      <label><input type="checkbox" id="net-in-scope" /> <span data-i18n="research.inScope">In scope</span></label>
+      <button class="btn sm" id="net-scope-edit" data-i18n="research.scope">Scope</button>
+    </div>
     <div class="ix-body">
       <div id="net-list" class="net-list"></div>
       <div id="net-detail" class="net-detail hidden"></div>
@@ -203,6 +209,7 @@
         <option value="xml">XML</option>
         <option value="json">JSON</option>
         <option value="csv">CSV</option>
+        <option value="safejson" data-i18n="research.safeExport">Redacted JSON</option>
       </select>
       <button class="btn sm primary" id="net-save" data-i18n="flow.save">Save</button>
       <button class="btn sm" id="net-clear" data-i18n="flow.clear">Clear</button>
@@ -216,6 +223,7 @@
         <span class="ix-led"></span>
         <span id="ix-state-text">Off</span>
       </div>
+      <button class="btn sm" id="ix-forward-all" data-i18n="intercept.forwardAll">Forward all</button>
       <div class="switch" id="ix-toggle" title="Pause requests"></div>
     </div>
 
@@ -228,6 +236,12 @@
       <div id="ix-list"></div>
 
       <div id="ix-detail" class="hidden">
+        <div class="ix-action-bar" role="toolbar" data-i18n-aria="intercept.actions" aria-label="Request actions">
+          <button class="btn primary" id="ix-forward" data-i18n="intercept.forward">Forward</button>
+          <button class="btn danger" id="ix-drop" data-i18n="intercept.drop">Drop</button>
+          <button class="btn" id="ix-repeat" data-i18n="intercept.repeat">Repeat</button>
+          <button class="btn ghost" id="ix-back" data-i18n="intercept.back">Back</button>
+        </div>
         <div class="ix-names">
           <button class="ix-name active" data-ix-tab="request" data-i18n="intercept.tabRequest">Request</button>
           <button class="ix-name" data-ix-tab="response" data-i18n="intercept.tabResponse">Response</button>
@@ -278,12 +292,6 @@
           </div>
         </div>
 
-        <div class="btn-row">
-          <button class="btn primary" id="ix-forward" data-i18n="intercept.forward">Forward</button>
-          <button class="btn danger" id="ix-drop" data-i18n="intercept.drop">Drop</button>
-          <button class="btn" id="ix-repeat" data-i18n="intercept.repeat">Repeat</button>
-          <button class="btn ghost" id="ix-back" data-i18n="intercept.back">Back</button>
-        </div>
         <div class="btn-row ix-code-row">
           <select id="ix-code-lang" class="mini-select">
             <option value="curl">cURL</option>
@@ -302,7 +310,6 @@
     </div>
 
     <footer class="ix-foot">
-      <button class="btn sm" id="ix-forward-all" data-i18n="intercept.forwardAll">Forward all</button>
       <span class="muted small" id="ix-hint"></span>
     </footer>
   </section>
@@ -330,6 +337,7 @@
       <button class="snav" data-section="fingerprint" data-i18n="settings.nav.fingerprint">Fingerprint</button>
       <button class="snav" data-section="proxy" data-i18n="settings.nav.proxy">Proxy</button>
       <button class="snav" data-section="intercept" data-i18n="settings.nav.intercept">Interceptor</button>
+      <button class="snav" data-section="research" data-i18n="research.title">Research</button>
       <button class="snav" data-section="shortcuts" data-i18n="settings.nav.shortcuts">Shortcuts</button>
       <button class="snav" data-section="wallpapers" data-i18n="settings.nav.wallpapers">Wallpapers</button>
       <button class="snav" data-section="extensions" data-i18n="settings.nav.extensions">Extensions</button>
@@ -365,6 +373,8 @@
 </div>
 
 <script src="i18n.js"></script>
+<script src="../shared/research.js"></script>
+<script src="research-ui.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

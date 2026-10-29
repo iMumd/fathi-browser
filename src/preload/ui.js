@@ -23,6 +23,10 @@ const EVENTS = new Set([
 
 contextBridge.exposeInMainWorld('api', {
   appInfo: () => ipcRenderer.invoke('fathi:app:info'),
+  research: {
+    scope: () => ipcRenderer.invoke('fathi:research:scope'),
+    setScope: (value) => ipcRenderer.invoke('fathi:research:set-scope', value)
+  },
 
   win: {
     minimize: () => ipcRenderer.invoke('fathi:win:minimize'),
