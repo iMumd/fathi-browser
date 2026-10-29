@@ -1,7 +1,7 @@
 {
   "name": "fathi",
   "productName": "Fathi",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Private browser with a unique identity in every tab",
   "author": {
     "name": "iMumd",
@@ -101,6 +101,12 @@
       "artifactName": "Fathi-Portable-${version}.${ext}"
     },
     "linux": {
+      "extraResources": [
+        {
+          "from": "assets/icon-256.png",
+          "to": "fathi.png"
+        }
+      ],
       "target": [
         "dir",
         "tar.gz"

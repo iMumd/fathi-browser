@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+
+- Improve Burp, SOCKS port, rule collapse, and keyboard shortcut controls.
+- Preview user-provided payloads with the live rule engine in a timeout worker.
+- Align mobile frames and avoid repeated native emulation calls.
+- Restore update notifications for newly available versions.
+- Show release highlights once per installed version.
+- Verify update downloads and actual replacements on Linux, Windows, and macOS.
+
 ## 1.0.0
 
 First public release.
