@@ -16,6 +16,7 @@ const rewrite = require('./rewrite');
 /* ------------------------------------------------------------ header spoof */
 
 function buildClientHints(fp) {
+  if (fp.clientHints === false) return {};
   const brands = (fp.uaBrands || []).map((b) => `"${b.brand}";v="${b.version}"`).join(', ');
   return {
     'sec-ch-ua': brands,
@@ -24,7 +25,7 @@ function buildClientHints(fp) {
     'sec-ch-ua-platform-version': `"${fp.platformVersion}"`,
     'sec-ch-ua-arch': `"${fp.architecture}"`,
     'sec-ch-ua-bitness': `"${fp.bitness}"`,
-    'sec-ch-ua-model': '""',
+    'sec-ch-ua-model': `"${fp.model || ''}"`,
     'sec-ch-ua-full-version': `"${fp.uaFullVersion}"`,
     'sec-ch-ua-full-version-list': (fp.uaFullVersionList || [])
       .map((b) => `"${b.brand}";v="${b.version}"`).join(', ')
@@ -47,24 +48,12 @@ function acceptLanguage(fp) {
 function applyCertTrust(ses) {
   try {
     const cfg = settings.get().proxy || {};
-    if (!cfg.trustBurpCert) {
+    if (!cfg.trustBurpCert || !cfg.enabled || !cfg.burpCaPem) {
       ses.setCertificateVerifyProc(null);
       return;
     }
     ses.setCertificateVerifyProc((request, callback) => {
-      const c = request.certificate || {};
-      const names = [
-        c.issuerName,
-        c.issuer && c.issuer.commonName,
-        c.issuer && c.issuer.organizationName,
-        c.issuer && c.issuer.organization,
-        c.subjectName,
-        c.subject && c.subject.commonName,
-        c.subject && c.subject.organizationName
-      ].filter(Boolean).join(' ');
-      // PortSwigger ships its CA as "PortSwigger CA" but organizations have
-      // been renamed over the years, so match every known spelling.
-      if (/portswigger|burp\s*suite|burp\s*ca/i.test(names)) return callback(0);
+      if (require('./certificate-trust').verifies(request, cfg.burpCaPem)) return callback(0);
       callback(-3); // fall back to the default verification
     });
   } catch (e) {
@@ -87,14 +76,16 @@ function configureSession(ses, fp, partition, opts = {}) {
   try {
     ses.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
       const h = details.requestHeaders || {};
-      const hints = buildClientHints(fp);
-
-      h['User-Agent'] = fp.ua;
-      h['Accept-Language'] = acceptLanguage(fp);
-      for (const k of Object.keys(hints)) h[k] = hints[k];
-
-      delete h['DNT'];
-      delete h['X-Client-Data'];
+      if (fp.enabled !== false) {
+        const hints = buildClientHints(fp);
+        // Header names are case-insensitive; remove old spellings first.
+        for (const key of Object.keys(h)) {
+          if (/^(user-agent|accept-language|dnt|x-client-data)$/i.test(key) || /^sec-ch-ua(?:-|$)/i.test(key)) delete h[key];
+        }
+        h['User-Agent'] = fp.ua;
+        h['Accept-Language'] = acceptLanguage(fp);
+        for (const k of Object.keys(hints)) h[k] = hints[k];
+      }
 
       // Match and Replace on request headers, before anything leaves the tab.
       const rules = (settings.get().matchReplace || []);
@@ -121,7 +112,7 @@ function configureSession(ses, fp, partition, opts = {}) {
     });
   } catch {}
 
-  try { ses.setUserAgent(fp.ua, fp.language); } catch {}
+  if (fp.enabled !== false) { try { ses.setUserAgent(fp.ua, acceptLanguage(fp)); } catch {} }
 
   /* ---- permissions: deny everything that could de-anonymise the tab */
   try {

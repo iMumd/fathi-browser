@@ -82,6 +82,7 @@ async function applyTo(ses, partition, forceEntry) {
     return entry;
   } catch (e) {
     console.error('[proxy] apply failed', e);
+    if (entry && cfg.enabled) throw e;
     return null;
   }
 }

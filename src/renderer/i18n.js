@@ -6,6 +6,12 @@
 (function () {
   const DICT = {
     en: {
+      'proxy.importCa': 'Import Burp public CA',
+      'proxy.fetchCa': 'Retrieve local Burp CA',
+      'proxy.caReady': 'Burp public CA verified and trusted inside Fathi.',
+      'proxy.caImported': 'Public CA imported. Only chains signed by this CA can use the proxy trust exception.',
+      'proxy.caRequired': 'Export Burp’s public CA and import it here. Certificate names alone are never trusted.',
+      'fp.nextIdentity': 'Changes apply to new tabs and New identity. Existing profiles stay stable until reset.',
       'intercept.actions': 'Request actions',
       'about.principle.inspect': 'Inspect with intent',
       'about.principle.inspectHint': 'Understand requests, responses and the decisions between them.',
@@ -267,8 +273,8 @@
       'proxy.burp': 'Burp Suite',
       'proxy.burpHint': 'Routes every tab through Burp at 127.0.0.1:8080 and trusts its PortSwigger CA. Keep Burp’s own interception off while using Fathi’s interceptor.',
       'proxy.burpApply': 'Use Burp',
-      'proxy.trust': 'Trust PortSwigger certificate',
-      'proxy.trustHint': 'Accepts HTTPS interception certificates issued by Burp’s CA only.',
+      'proxy.trust': 'Trust the imported Burp CA',
+      'proxy.trustHint': 'Requires an imported public CA and an enabled proxy. Names alone do not establish trust.',
       'proxy.intercept': 'Request interception',
       'proxy.interceptHint': 'Pause, edit, forward or drop requests inside the browser.',
       'proxy.openIntercept': 'Open interceptor',
@@ -550,6 +556,12 @@
     },
 
     ar: {
+      'proxy.importCa': 'استيراد شهادة CA العامة لبارب',
+      'proxy.fetchCa': 'جلب شهادة Burp المحلي',
+      'proxy.caReady': 'تم التحقق من شهادة Burp العامة وتوثيقها داخل فتحي.',
+      'proxy.caImported': 'تم استيراد الشهادة العامة. استثناء الثقة مقيّد بالسلاسل الموقعة منها فقط.',
+      'proxy.caRequired': 'صدّر شهادة CA العامة من Burp واستوردها هنا. لا تُوثق الشهادات بالاسم وحده.',
+      'fp.nextIdentity': 'تُطبق التغييرات على التبويبات الجديدة وإعادة الهوية. تبقى الهوية الحالية ثابتة حتى إعادة التهيئة.',
       'intercept.actions': 'إجراءات الطلب',
       'about.principle.inspect': 'تحليل هادف',
       'about.principle.inspectHint': 'افهم الطلبات والاستجابات والتفاصيل التي تربط بينها.',
@@ -811,8 +823,8 @@
       'proxy.burp': 'Burp Suite',
       'proxy.burpHint': 'يوجّه كل التبويبات عبر Burp على 127.0.0.1:8080 ويثق بشهادة PortSwigger. أطفئ الاعتراض داخل Burp إذا استخدمت اعتراض فتحي.',
       'proxy.burpApply': 'استخدام Burp',
-      'proxy.trust': 'الثقة بشهادة PortSwigger',
-      'proxy.trustHint': 'يقبل شهادات HTTPS الصادرة من شهادة Burp فقط.',
+      'proxy.trust': 'الثقة بشهادة CA المستوردة لبارب',
+      'proxy.trustHint': 'يتطلب شهادة عامة مستوردة وبروكسي مفعلاً. الاسم وحده لا يكفي للثقة.',
       'proxy.intercept': 'اعتراض الطلبات',
       'proxy.interceptHint': 'أوقف وعدّل ومرّر أو أسقط الطلبات داخل المتصفح.',
       'proxy.openIntercept': 'فتح الاعتراض',

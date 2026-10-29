@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   tab: {
+    ready: (wcId) => ipcRenderer.invoke('fathi:tab:ready', wcId),
     prepare: (opts) => ipcRenderer.invoke('fathi:tab:prepare', opts || {}),
     destroy: (partition) => ipcRenderer.invoke('fathi:tab:destroy', { partition }),
     proxyStatus: (partition) => ipcRenderer.invoke('fathi:tab:proxy-status', { partition })
@@ -56,6 +57,8 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   proxy: {
+    fetchBurpCa: () => ipcRenderer.invoke('fathi:proxy:fetch-ca'),
+    importCa: () => ipcRenderer.invoke('fathi:proxy:import-ca'),
     get: () => ipcRenderer.invoke('fathi:proxy:get'),
     set: (patch) => ipcRenderer.invoke('fathi:proxy:set', patch),
     test: (entry, url) => ipcRenderer.invoke('fathi:proxy:test', { entry, url })

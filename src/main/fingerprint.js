@@ -182,14 +182,16 @@ function randHex(bytes) { return crypto.randomBytes(bytes).toString('hex'); }
 function generate(opts) {
   const options = typeof opts === 'string' ? { seed: opts } : (opts || {});
   const device = devices.get(options.deviceId);
-  const seed = options.seed ? hash32(String(options.seed)) : crypto.randomBytes(4).readUInt32LE(0);
-  const rng = mulberry32(seed);
+  const material = options.seed ? crypto.createHash('sha256').update(String(options.seed)).digest() : crypto.randomBytes(32);
+  const seed = material.subarray(0, 16).toString('hex');
+  const rng = mulberry32(material.readUInt32LE(0));
 
   const osKey = pickWeighted(rng, Object.keys(OS_PROFILES));
   const os = OS_PROFILES[osKey];
   const lang = pick(rng, LANG_POOL);
-  const ver = REAL_CHROME - Math.floor(rng() * 7);           // last ~7 majors
-  const fullVer = `${ver}.0.${6482 + Math.floor(rng() * 60)}.${40 + Math.floor(rng() * 90)}`;
+  // The JavaScript engine cannot become an older Chrome build by changing UA.
+  const ver = REAL_CHROME;
+  const fullVer = process.versions.chrome || `${ver}.0.0.0`;
 
   const ua = `Mozilla/5.0 (${os.uaOs}) AppleWebKit/537.36 (KHTML, like Gecko) ` +
     `Chrome/${ver}.0.0.0 Safari/537.36`;
@@ -199,8 +201,8 @@ function generate(opts) {
 
   const gpu = pick(rng, os.gpus);
   const cores = pick(rng, os.cores);
-  const memory = pick(rng, os.memory);
-  const plugins = pick(rng, PLUGIN_SETS);
+  const memory = Math.min(8, pick(rng, os.memory));
+  const plugins = PLUGIN_SETS[0].slice();
   const platformVersion = pick(rng, os.platformVersions);
 
   const brands = shuffle(rng, [
@@ -233,7 +235,7 @@ function generate(opts) {
     productSub: '20030107',
     oscpu: undefined,
     language: lang.language,
-    languages: lang.languages,
+    languages: lang.languages.slice(),
     doNotTrack: null,
     hardwareConcurrency: cores,
     deviceMemory: memory,
@@ -247,7 +249,7 @@ function generate(opts) {
     uaMobile: false,
     uaDataPlatform: os.uaDataPlatform,
     platformVersion,
-    architecture: os.architecture,
+    architecture: osKey === 'mac' && /Intel/.test(gpu.r) ? 'x86' : os.architecture,
     bitness: os.bitness,
     wow64: os.wow64,
 
@@ -264,13 +266,13 @@ function generate(opts) {
 
     // graphics / media
     webgl: { vendor: gpu.v, renderer: gpu.r },
-    canvasSeed: Math.floor(rng() * 0xFFFFFFFF),
-    audioSeed: Math.floor(rng() * 0xFFFFFFFF),
+    canvasSeed: material.readUInt32LE(16),
+    audioSeed: material.readUInt32LE(20),
     fonts,
     plugins,
 
     // misc
-    timezone: lang.timezone,
+    timezone: new Intl.DateTimeFormat('en-US', { timeZone: lang.timezone }).resolvedOptions().timeZone,
     timezoneOffsetBase: 0,
     colorScheme: rng() > 0.28 ? 'light' : 'dark',
     pdfViewerEnabled: true,
@@ -338,11 +340,11 @@ function applyMobileProfile(fp, device, rng, chromeMajor) {
   };
 
   // ---- graphics
-  fp.webgl = device.gpu;
+  fp.webgl = { ...device.gpu };
 
   // ---- hardware
   fp.hardwareConcurrency = isIOS ? pick(rng, [6]) : pick(rng, [8, 8, 8]);
-  fp.deviceMemory = isIOS ? 8 : pick(rng, [4, 6, 8]);
+  fp.deviceMemory = isIOS ? undefined : pick(rng, [4, 8]);
   fp.pdfViewerEnabled = true;
   fp.cookieEnabled = true;
   fp.connection = {
