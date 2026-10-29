@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Audit profile entropy, canvas/audio consistency, timezone semantics, native
+  worker initialization, header coherence and storage teardown.
+- Await proxy setup before target navigation and reject cross-tab identity access.
+- Replace certificate-name trust with verified public-CA pinning; automatically
+  retrieve Burp's public CA through the explicitly selected local HTTP proxy.
 - Move interception actions above the request editor and keep them visible
   while scrolling; place Forward all beside the interceptor toggle.
 - Add a session-only research workspace with include/exclude target scope and

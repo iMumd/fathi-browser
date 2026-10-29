@@ -63,6 +63,7 @@ const network = require('./network');
 const tor = require('./tor');
 const updater = require('./updater');
 const researchScope = require('./research-scope');
+const identityRuntime = require('./identity-runtime');
 
 /* ----------------------------------------------------------------- state */
 
@@ -79,7 +80,7 @@ protocolPages.registerPrivileged();
 
 /* -------------------------------------------------------------- sessions */
 
-function ensureSession(partition, fp) {
+async function ensureSession(partition, fp) {
   if (partitions.has(partition)) {
     const rec = partitions.get(partition);
     rec.fp = fp;
@@ -91,8 +92,10 @@ function ensureSession(partition, fp) {
 
   proxyMgr.assign(partition);
   protocolPages.bind(ses);
-  configureSession(ses, fp, partition, { downloadDir: DOWNLOAD_DIR });
+  configureSession(ses, fp, partition, { downloadDir: DOWNLOAD_DIR, proxy: false });
   partitions.set(partition, { ses, fp });
+  // A guest must not navigate before its proxy is configured.
+  await proxyMgr.applyTo(ses, partition);
 
   return ses;
 }
@@ -101,7 +104,11 @@ async function destroySession(partition) {
   const rec = partitions.get(partition);
   partitions.delete(partition);
   partitionFp.delete(partition);
+  proxyMgr.assignments.delete(partition);
   if (!rec) return;
+  fps.delete(rec.fp.id);
+  try { await rec.ses.closeAllConnections(); } catch {}
+  try { await rec.ses.clearAuthCache(); } catch {}
   try { await rec.ses.clearStorageData(); } catch {}
   try { await rec.ses.clearCache(); } catch {}
   try { await rec.ses.clearHostResolverCache(); } catch {}
@@ -145,6 +152,7 @@ function createWindow() {
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
     const partition = params.partition || '';
     const fpId = partitionFp.get(partition) || '';
+    if (!fpId || !partitions.has(partition) || partition.startsWith('persist:')) { event.preventDefault(); return; }
 
     // Never trust a renderer supplied preload / node integration
     delete webPreferences.preloadURL;
@@ -226,7 +234,7 @@ async function applyDeviceEmulation(wc, fp, viewport) {
       scale
     });
     await wc.debugger.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-    if (fp.ua) wc.setUserAgent(fp.ua, (fp.languages || ['en-US']).join(','));
+    if (fp.ua && fp.enabled !== false) wc.setUserAgent(fp.ua, (fp.languages || ['en-US']).join(','));
   } catch (e) {
     emulationLayouts.delete(wc);
     // Target already gone or emulation unsupported; the page still renders.
@@ -235,11 +243,13 @@ async function applyDeviceEmulation(wc, fp, viewport) {
 
 app.on('web-contents-created', (_event, wc) => {
   if (wc.getType() !== 'webview') return;
+  try { wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp'); } catch {}
 
   intercept.attach(wc);
   network.attach(wc);
 
   const rec = recordForWebContents(wc);
+  if (rec) identityRuntime.attach(wc, rec.fp);
   if (rec && rec.fp && rec.fp.device && rec.fp.device.mobile) {
     const apply = () => applyDeviceEmulation(wc, rec.fp, lastViewport);
     // A newly created guest has no render view yet. Configuring it synchronously
@@ -380,22 +390,34 @@ ipcMain.handle('fathi:fp:new', () => {
 });
 
 ipcMain.on('fathi:fp:sync', (event, fpId) => {
-  const fp = fps.get(fpId);
+  const own = recordForWebContents(event.sender);
+  const fp = own?.fp.id === fpId ? own.fp : null;
   event.returnValue = fp ? JSON.stringify(fp) : 'null';
 });
 
 ipcMain.handle('fathi:fp:current', (event, fpId) => {
-  const fp = fps.get(fpId);
+  const own = recordForWebContents(event.sender);
+  const fp = event.sender === mainWindow?.webContents ? fps.get(fpId) : own?.fp.id === fpId ? own.fp : null;
   return fp ? ok({ fp }) : fail('no fingerprint');
 });
 
 /* --- tabs */
-ipcMain.handle('fathi:tab:prepare', async (event, opts = {}) => {
+ipcMain.handle('fathi:tab:ready', async (event, wcId) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may initialize tab sessions');
   try {
-    let fp = opts.fp && opts.fp.id ? opts.fp : null;
-    if (!fp) {
-      fp = fpgen.generate({ deviceId: opts.deviceId });
-      if (opts.landscape && fp.device && fp.device.mobile) {
+    const wc = webContents.fromId(Number(wcId));
+    const rec = wc && recordForWebContents(wc);
+    if (!rec) return fail('Unknown tab session');
+    await identityRuntime.ready(wc, rec.fp);
+    return ok({});
+  } catch (error) { return fail(error); }
+});
+ipcMain.handle('fathi:tab:prepare', async (event, opts = {}) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may create tab sessions');
+  let partition;
+  try {
+    const fp = fpgen.generate({ deviceId: opts.deviceId });
+    if (opts.landscape && fp.device && fp.device.mobile) {
         const w = fp.device.width;
         fp.device.width = fp.device.height;
         fp.device.height = w;
@@ -404,15 +426,13 @@ ipcMain.handle('fathi:tab:prepare', async (event, opts = {}) => {
         fp.screen.height = fp.device.height;
         fp.screen.availWidth = fp.device.width;
         fp.screen.availHeight = Math.round(fp.device.height * 0.94);
-      }
-      fps.set(fp.id, fp);
-    } else {
-      fps.set(fp.id, fp);
     }
+    for (const key of ['enabled', 'spoofCanvas', 'spoofWebgl', 'spoofAudio']) fp[key] = settings.get().fingerprint?.[key] !== false;
+    fps.set(fp.id, fp);
 
-    const partition = `fathi-tab-${fp.id}-${Date.now().toString(36)}`;
+    partition = `fathi-tab-${require('node:crypto').randomUUID()}`;
     partitionFp.set(partition, fp.id);
-    ensureSession(partition, fp);
+    await ensureSession(partition, fp);
 
     return ok({
       fp,
@@ -421,11 +441,13 @@ ipcMain.handle('fathi:tab:prepare', async (event, opts = {}) => {
       proxy: proxyMgr.status(partition)
     });
   } catch (e) {
+    if (partition) await destroySession(partition);
     return fail(e);
   }
 });
 
 ipcMain.handle('fathi:tab:destroy', async (event, { partition } = {}) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may destroy tab sessions');
   if (partition) await destroySession(partition);
   return ok({});
 });
@@ -435,6 +457,31 @@ ipcMain.handle('fathi:tab:proxy-status', (event, { partition } = {}) => {
 });
 
 /* --- proxy */
+ipcMain.handle('fathi:proxy:fetch-ca', async (event) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may import a CA');
+  try {
+    const cfg = settings.get().proxy;
+    if (!cfg.enabled) return fail('Enable the local Burp proxy first');
+    const entry = proxyMgr.parseEntry(cfg.pool?.[0]);
+    const ca = await require('./burp-ca').fetchCa(entry);
+    settings.save({ proxy: { burpCaPem: ca.toString(), trustBurpCert: true } });
+    for (const rec of partitions.values()) applyCertTrust(rec.ses);
+    return ok({ fingerprint: ca.fingerprint256 });
+  } catch (error) { return fail(error); }
+});
+ipcMain.handle('fathi:proxy:import-ca', async (event) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may import a CA');
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, { title: 'Import Burp public CA certificate', properties: ['openFile'], filters: [{ name: 'Certificates', extensions: ['pem', 'der', 'crt', 'cer'] }] });
+    if (result.canceled) return ok({ canceled: true });
+    const data = await fs.promises.readFile(result.filePaths[0]);
+    if (data.length > 65536) return fail('Certificate file is too large');
+    const ca = require('./certificate-trust').parseCa(data);
+    settings.save({ proxy: { burpCaPem: ca.toString(), trustBurpCert: true } });
+    for (const rec of partitions.values()) applyCertTrust(rec.ses);
+    return ok({ fingerprint: ca.fingerprint256 });
+  } catch (error) { return fail(error); }
+});
 ipcMain.handle('fathi:proxy:get', () => ok({ config: settings.get().proxy }));
 
 ipcMain.handle('fathi:proxy:set', async (event, patch = {}) => {

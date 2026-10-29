@@ -263,7 +263,6 @@ function makeTabElement(tab) {
 
 async function createTab(opts = {}) {
   const prep = await window.api.tab.prepare({
-    ...(opts.fp ? { fp: opts.fp } : {}),
     deviceId: opts.deviceId || (state.settings && state.settings.defaultDevice) || 'desktop',
     landscape: !!opts.landscape
   });
@@ -283,8 +282,9 @@ async function createTab(opts = {}) {
 
   // The src attribute must be set *after* the element is attached, otherwise
   // Chromium creates the guest but never starts a navigation.
-  wv.setAttribute('src', startUrl);
-  try { wv.loadURL(startUrl); } catch { /* queued until dom-ready */ }
+  // Initialize the guest on a local blank document. No target request or page
+  // script runs until native identity and worker hooks are ready.
+  wv.setAttribute('src', 'about:blank');
 
   const tab = {
     id,
@@ -293,6 +293,8 @@ async function createTab(opts = {}) {
     fpId: prep.fpId,
     proxy: prep.proxy,
     wv,
+    startUrl,
+    identityReady: false,
     url: opts.url || startUrl,
     title: t('tab.new'),
     favicon: null,
@@ -314,7 +316,7 @@ async function createTab(opts = {}) {
   // first-attach race), kick it once more.
   setTimeout(() => {
     try {
-      if (!wv.getURL()) wv.loadURL(startUrl);
+      if (!wv.getURL()) wv.loadURL('about:blank');
     } catch {}
   }, 1200);
 
@@ -415,10 +417,17 @@ function wireWebview(tab) {
     toast(t('toast.crashed'), 'err');
   });
 
-  wv.addEventListener('dom-ready', () => {
-    wv.classList.add('ready');
+  wv.addEventListener('dom-ready', async () => {
     try { wv.setZoomFactor(1); } catch {}
     try { tab.wcId = wv.getWebContentsId(); } catch {}
+    if (!tab.identityReady) {
+      const initialized = await window.api.tab.ready(tab.wcId);
+      if (!initialized.ok) { toast(initialized.error, 'err'); return; }
+      tab.identityReady = true;
+      try { await wv.loadURL(tab.startUrl); } catch {}
+      return;
+    }
+    wv.classList.add('ready');
     if (state.activeId === tab.id) applyTabLayout(tab);
     updateNavButtons();
   });
@@ -501,7 +510,7 @@ async function closeTab(id, opts = {}) {
   clearResearchForTab(tab.wcId);
   if (flow.detail?.wcId === tab.wcId) flowBack();
   try { tab.el.remove(); } catch {}
-  window.api.tab.destroy(tab.partition);
+  await window.api.tab.destroy(tab.partition);
 
   state.tabs.splice(idx, 1);
 
@@ -548,6 +557,7 @@ function navigate(url) {
   const target = normalizeInput(url);
   if (!target) return;
   tab.url = target;
+  if (!tab.identityReady) { tab.startUrl = target; omnibox.blur(); return; }
   try { tab.wv.loadURL(target); } catch { tab.wv.setAttribute('src', target); }
   omnibox.blur();
 }
@@ -2415,6 +2425,7 @@ function renderSection(section) {
       <div class="card">
         <h3>${esc(t('fp.title'))}</h3>
         <p class="hint">${esc(t('fp.hint'))}</p>
+        <p class="hint">${esc(t('fp.nextIdentity'))}</p>
         <div class="row">
           <div><label>${esc(t('fp.enabled'))}</label><div class="sub">${esc(t('fp.enabledSub'))}</div></div>
           <div class="switch ${f.enabled !== false ? 'on' : ''}" data-toggle="fingerprint.enabled"></div>
@@ -2509,6 +2520,7 @@ function renderSection(section) {
           <div><label>${esc(t('proxy.trust'))}</label><div class="sub">${esc(t('proxy.trustHint'))}</div></div>
           <div class="switch ${p.trustBurpCert ? 'on' : ''}" id="px-trust"></div>
         </div>
+        <div class="btn-row"><button class="btn" id="px-fetch-ca">${esc(t('proxy.fetchCa'))}</button><button class="btn" id="px-import-ca">${esc(t('proxy.importCa'))}</button><span class="hint">${esc(t(p.burpCaPem ? 'proxy.caImported' : 'proxy.caRequired'))}</span></div>
 
         <div class="row">
           <div><label>${esc(t('proxy.intercept'))}</label><div class="sub">${esc(t('proxy.interceptHint'))}</div></div>
@@ -2589,17 +2601,33 @@ function renderSection(section) {
       if (res.ok) { state.settings.proxy = res.config; toast(t('toast.saved'), 'ok'); }
       else toast(res.error, 'err');
     });
+    $('#px-import-ca').addEventListener('click', async () => {
+      const result = await window.api.proxy.importCa();
+      if (!result.ok) { toast(result.error, 'err'); return; }
+      if (!result.canceled) { state.settings = (await window.api.settings.get()).settings; renderSection('proxy'); }
+    });
+    $('#px-fetch-ca').addEventListener('click', async (event) => {
+      event.currentTarget.disabled = true;
+      const result = await window.api.proxy.fetchBurpCa();
+      state.settings = (await window.api.settings.get()).settings;
+      renderSection('proxy');
+      toast(result.ok ? t('proxy.caReady') : result.error, result.ok ? 'ok' : 'err');
+    });
 
-    $('#px-burp').addEventListener('click', async () => {
+    $('#px-burp').addEventListener('click', async (event) => {
+      event.currentTarget.disabled = true;
       const res = await window.api.proxy.set({
         enabled: true,
         mode: 'single',
         pool: ['http://127.0.0.1:8080'],
         bypass: '<local>',
-        trustBurpCert: true
+        trustBurpCert: false
       });
-      if (!res.ok) return toast(res.error, 'err');
-      state.settings.proxy = res.config;
+      if (!res.ok) { event.currentTarget.disabled = false; return toast(res.error, 'err'); }
+      const certificate = await window.api.proxy.fetchBurpCa();
+      if (!certificate.ok) toast(certificate.error, 'err');
+      else toast(t('proxy.caReady'), 'ok');
+      state.settings = (await window.api.settings.get()).settings;
       updateChips();
       renderSection('proxy');
       toast(t('toast.applied', { n: res.applied }), 'ok');
