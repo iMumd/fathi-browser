@@ -153,6 +153,11 @@ async function run(win) {
     JSON.stringify(about));
 
   /* ---- 3. second tab gets a different partition */
+  if (process.argv.includes('--fathi-identity-audit')) {
+    trace('identity isolation audit');
+    const checks = await require('./identity-checks').run(ui);
+    for (const check of checks) add(check.name, check.pass, check.detail);
+  }
   const updateUi = await ui.executeJavaScript(`(async () => {
     openSettings('proxy');
     const port = document.getElementById('tor-port');

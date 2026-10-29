@@ -9,6 +9,7 @@ Built with Electron and Chromium for Windows, Linux, and macOS.
 
 [Download](https://github.com/iMumd/fathi-browser/releases/latest) ·
 [Research guide](docs/research-workspace.md) ·
+[Identity audit](docs/identity-audit.md) ·
 [Contribute](CONTRIBUTING.md) ·
 [Changelog](CHANGELOG.md)
 
@@ -37,6 +38,11 @@ still **1.0.2**. Updating a released installation does not install unreleased co
 Research tools do not automatically crawl, scan, or attack targets. Passive
 notes do not issue extra requests and are not confirmed vulnerability reports.
 JWT inspection decodes claims; it does not verify their signature.
+
+Use Burp also retrieves and validates the public CA from the local Burp listener
+and pins it inside Fathi. No system-wide certificate installation is performed.
+If retrieval fails, open Burp and retry Retrieve local Burp CA, or import its
+public certificate manually. Remote proxy CAs are never fetched automatically.
 
 ## Privacy, with clear boundaries
 
