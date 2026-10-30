@@ -153,6 +153,11 @@ async function run(win) {
     JSON.stringify(about));
 
   /* ---- 3. second tab gets a different partition */
+  if (process.argv.includes('--fathi-intercept-audit')) {
+    trace('live interception and rule audit');
+    const checks = await require('./intercept-checks').run(ui);
+    for (const check of checks) add(check.name, check.pass, check.detail);
+  }
   if (process.argv.includes('--fathi-identity-audit')) {
     trace('identity isolation audit');
     const checks = await require('./identity-checks').run(ui);
@@ -313,7 +318,7 @@ async function run(win) {
     const topActions = await ui.executeJavaScript(`(async () => {
       devOpen('intercept'); await ixOpenItem(ix.items[0].id);
       ixRenderHeaderRows(Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['X-Test-' + i, 'test value'])));
-      const scroller = document.querySelector('#pane-intercept .ix-body');
+      const scroller = document.getElementById('ix-detail');
       const bar = document.querySelector('.ix-action-bar');
       const aboveEditor = bar.getBoundingClientRect().bottom <= document.getElementById('ix-url').getBoundingClientRect().top;
       scroller.scrollTop = 300;

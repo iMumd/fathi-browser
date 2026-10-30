@@ -32,3 +32,20 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/test-update-metadata.ps1
+      - name: Run browser identity and live interception audits
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $app = Start-Process -FilePath ./node_modules/electron/dist/electron.exe -ArgumentList '.', '--fathi-e2e', '--fathi-identity-audit', '--fathi-intercept-audit' -PassThru -Wait
+          Get-Content e2e-result.txt
+          if ($app.ExitCode -ne 0) { exit $app.ExitCode }
+      - name: Preserve browser audit reports
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-audit-windows
+          path: |
+            e2e-report.json
+            e2e-result.txt
+            e2e-*.png
+          if-no-files-found: ignore

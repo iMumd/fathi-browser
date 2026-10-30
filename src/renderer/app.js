@@ -791,7 +791,7 @@ document.addEventListener('mousedown', (e) => {
 
 /* -------------------------------------------------- flow + dev drawer */
 
-const ix = { enabled: false, items: [], current: null, filter: '', view: 'request' };
+const ix = { enabled: false, items: [], current: null, filter: '', view: 'request', drafts: new Map() };
 
 const flow = {
   wcId: null,
@@ -1079,19 +1079,13 @@ function ixUpdateChrome() {  const count = ix.items.length;
 function ixRenderList() {
   const box = $('#ix-list');
   if (!box) return;
-  const needle = String(ix.filter || '').trim().toLowerCase();
-  const list = needle
-    ? ix.items.filter((r) => {
-        const hay = `${r.method} ${r.url} ${r.resourceType} ${r.postData || ''} ${JSON.stringify(r.headers || {})}`.toLowerCase();
-        return needle.split(/\s+/).filter(Boolean).every((part) => hay.includes(part));
-      })
-    : ix.items;
+  const list = ix.items;
   if (!list.length) {
     box.innerHTML = `<div class="ix-empty">${esc(t('intercept.empty'))}</div>`;
     return;
   }
   box.innerHTML = list.map((r) => `
-    <button class="ix-item ${ix.current === r.id ? 'active' : ''}" data-ix="${esc(r.id)}">
+    <button class="ix-item ${ix.current === r.id ? 'active' : ''}" data-ix="${esc(r.id)}" aria-current="${ix.current === r.id ? 'true' : 'false'}">
       <span class="ix-m">${esc(r.method)}</span>
       <span class="ix-u" title="${esc(r.url)}">${esc(r.url)}</span>
       <span class="ix-t">${esc(r.resourceType || '')}${r.hasResponse ? ' · R' : ''}</span>
@@ -1122,7 +1116,7 @@ function ixRenderHeaderRows(headers) {
   const box = $('#ix-headers-rows');
   if (!box) return;
   box.innerHTML = '';
-  const pairs = Object.entries(headers || {});
+  const pairs = Array.isArray(headers) ? headers.map((header) => [header.name, header.value]) : Object.entries(headers || {});
   if (!pairs.length) box.appendChild(ixHeaderRow());
   for (const [name, value] of pairs) {
     box.appendChild(ixHeaderRow(name, Array.isArray(value) ? value.join(', ') : String(value)));
@@ -1175,17 +1169,21 @@ function ixShowTab(which) {
 async function ixOpenItem(id) {
   const rec = ix.items.find((r) => r.id === id);
   if (!rec) return;
+  if (ix.current === id && !$('#ix-detail').classList.contains('hidden')) return;
+  if (ix.current && ix.current !== id) ixSaveDraft();
   ix.current = id;
-  $('#ix-list').classList.add('hidden');
+  $('#ix-list').classList.remove('hidden');
+  $('#pane-intercept .ix-body').classList.add('has-current');
   $('#ix-detail').classList.remove('hidden');
-  $('#pane-intercept .ix-body').scrollTop = 0;
+  $('#ix-detail').scrollTop = 0;
   $('.ix-action-bar').setAttribute('aria-label', t('intercept.actions'));
   $('#ix-repeat-out')?.remove();
-  $('#ix-url').value = rec.url;
-  $('#ix-method').value = rec.method;
+  const draft = ix.drafts.get(id);
+  $('#ix-url').value = draft?.url ?? rec.url;
+  $('#ix-method').value = draft?.method ?? rec.method;
   $('#ix-type').value = rec.resourceType || '';
-  ixRenderHeaderRows(rec.headers || {});
-  $('#ix-body-text').value = rec.postData || '';
+  ixRenderHeaderRows(draft?.headers ?? rec.headers ?? {});
+  $('#ix-body-text').value = draft?.postData ?? rec.postData ?? '';
   $('#ix-body-text').classList.toggle('mono-wrap', /\n/.test(rec.postData || ''));
   $('#ix-body-field').classList.toggle('hidden', /^(GET|HEAD)$/i.test(rec.method));
   const hint = $('#ix-body-hint');
@@ -1200,12 +1198,19 @@ async function ixOpenItem(id) {
   const respBody = $('#ix-resp-body');
   if (respBody) respBody.textContent = rec.hasResponse ? '' : t('intercept.repeatEmpty');
 
-  ixShowTab('request');
+  ixShowTab(draft?.view || 'request');
   ixRenderList();
 }
 
+function ixSaveDraft() {
+  if (!ix.current) return;
+  ix.drafts.set(ix.current, { url: $('#ix-url').value, method: $('#ix-method').value, headers: ixHeaderPairsFromRows(), postData: $('#ix-body-text').value, view: ix.view });
+}
+
 function ixBack() {
+  ixSaveDraft();
   ix.current = null;
+  $('#pane-intercept .ix-body').classList.remove('has-current');
   const detail = $('#ix-detail');
   const list = $('#ix-list');
   if (detail) detail.classList.add('hidden');
@@ -1229,6 +1234,7 @@ function ixCurrentRecord() {
   const rec = ix.items.find((r) => r.id === ix.current);
   if (!rec) return null;
   return {
+    wcId: rec.wcId,
     url: $('#ix-url').value.trim() || rec.url,
     method: ($('#ix-method').value.trim() || rec.method).toUpperCase(),
     requestHeaders: Object.fromEntries(ixHeaderPairsFromRows().map((h) => [h.name, h.value])),
@@ -1248,7 +1254,7 @@ async function ixResolve(action) {
     postData: $('#ix-body-text').value
   };
   const res = await window.api.intercept.resolve(payload);
-  if (!res || !res.ok) toast((res && res.error) || t('proxy.error'), 'err');
+  if (!res || !res.ok) { toast((res && res.error) || t('proxy.error'), 'err'); return; }
   ixRemove(rec.id);
 }
 
@@ -1263,6 +1269,7 @@ async function ixRepeat() {
   btn.textContent = t('intercept.repeating');
   try {
     const res = await window.api.intercept.repeat({
+      wcId: rec.wcId,
       url: rec.url,
       method: rec.method,
       headers: rec.requestHeaders,
@@ -1304,13 +1311,14 @@ function ixRenderRepeat(response) {
 }
 
 function ixRemove(id) {
+  const index = ix.items.findIndex((r) => r.id === id);
   ix.items = ix.items.filter((r) => r.id !== id);
+  ix.drafts.delete(id);
   if (ix.current === id) {
     ix.current = null;
-    const detail = $('#ix-detail');
-    const list = $('#ix-list');
-    if (detail) detail.classList.add('hidden');
-    if (list) list.classList.remove('hidden');
+    const next = ix.items[Math.min(Math.max(0, index), ix.items.length - 1)];
+    if (next) ixOpenItem(next.id);
+    else ixBack();
   }
   ixRenderList();
   ixUpdateChrome();
@@ -1774,12 +1782,18 @@ $('#ix-copy-curl').addEventListener('click', () => {
   if (rec) copyText(codeFor(rec, 'curl'));
 });
 
-$('#ix-forward-all').addEventListener('click', async () => {
-  const res = await window.api.intercept.drain();
-  ix.items = [];
-  ixBack();
-  ixUpdateChrome();
-  if (res && res.ok) toast(t('intercept.forwardAll'), 'ok');
+$('#ix-forward-all').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  ixSaveDraft();
+  try {
+    for (const item of [...ix.items]) {
+      const result = await window.api.intercept.resolve({ id: item.id, action: 'continue', ...(ix.drafts.get(item.id) || {}) });
+      if (result.ok) ixRemove(item.id);
+      else toast(result.error, 'err');
+    }
+    if (!ix.items.length) { ixBack(); toast(t('intercept.forwardAll'), 'ok'); }
+  } finally { button.disabled = false; ixUpdateChrome(); }
 });
 
 let ixFilterTimer = null;
@@ -3213,8 +3227,15 @@ window.api.on('fathi:intercept:resolved', ({ id } = {}) => {
 window.api.on('fathi:intercept:state', (st) => {
   if (!st) return;
   ix.enabled = !!st.enabled;
+  if (Array.isArray(st.ids)) for (const item of [...ix.items]) if (!st.ids.includes(item.id)) ixRemove(item.id);
   if (typeof st.filter === 'string') ix.filter = st.filter;
   ixUpdateChrome();
+});
+let lastRuleWarning = 0;
+window.api.on('fathi:rules:error', (result) => {
+  if (Date.now() - lastRuleWarning < 5000) return;
+  lastRuleWarning = Date.now();
+  toast(t('mr.notApplied') + ': ' + result.message, 'err');
 });
 
 window.api.on('fathi:net:batch', (batch) => {

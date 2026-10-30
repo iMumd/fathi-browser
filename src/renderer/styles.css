@@ -761,6 +761,10 @@ html.rtl #ix-drawer { right: auto; left: 14px; }
 .ix-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
 #ix-list { display: flex; flex-direction: column; }
+#pane-intercept > .ix-body { display: flex; flex-direction: column; overflow: hidden; }
+#pane-intercept #ix-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+#pane-intercept .ix-body.has-current #ix-list { flex: 0 0 min(24vh, 180px); border-bottom: 1px solid var(--border); }
+#pane-intercept #ix-detail { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .ix-empty { padding: 26px 18px; font-size: 11.5px; line-height: 1.65; color: var(--muted); text-align: center; }
 
 .ix-item {
