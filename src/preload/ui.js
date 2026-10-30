@@ -13,6 +13,7 @@ const EVENTS = new Set([
   'fathi:proxy:changed',
   'fathi:tor:changed',
   'fathi:update:state',
+  'fathi:rules:error',
   'fathi:settings:changed',
   'fathi:intercept:paused',
   'fathi:intercept:resolved',

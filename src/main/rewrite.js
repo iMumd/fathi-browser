@@ -51,10 +51,10 @@ function forTarget(rules, target) {
 function applyString(value, compiled) {
   let text = String(value == null ? '' : value);
   let changed = false;
-  for (const { re, replace } of compiled) {
+  for (const { re, replace, rule } of compiled) {
     // A fresh lastIndex per call keeps global regexes deterministic.
     re.lastIndex = 0;
-    const next = text.replace(re, replace);
+    const next = rule.regex ? text.replace(re, replace) : text.replace(re, () => replace);
     if (next !== text) {
       text = next;
       changed = true;
@@ -70,9 +70,13 @@ function applyHeaders(headers, rules, target) {
   const out = {};
   let changed = false;
   for (const [name, value] of Object.entries(headers)) {
-    const res = applyString(String(value), compiled);
-    if (res.changed) changed = true;
-    out[name] = res.text;
+    const values = Array.isArray(value) ? value : [value];
+    const replaced = values.map((item) => {
+      const result = applyString(String(item), compiled);
+      if (result.changed) changed = true;
+      return result.text;
+    });
+    out[name] = Array.isArray(value) ? replaced : replaced[0];
   }
   return { headers: changed ? out : headers, changed };
 }

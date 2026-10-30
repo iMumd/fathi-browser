@@ -89,9 +89,11 @@ function configureSession(ses, fp, partition, opts = {}) {
 
       // Match and Replace on request headers, before anything leaves the tab.
       const rules = (settings.get().matchReplace || []);
-      const hdr = rewrite.applyHeaders(h, rules, 'requestHeader');
-
-      callback({ requestHeaders: hdr.headers });
+      if (!rules.some((rule) => rule.enabled !== false && rule.target === 'requestHeader' && rule.match)) return callback({ requestHeaders: h });
+      require('./rule-executor').apply({ kind: 'headers', rules, target: 'requestHeader', headers: h }).then(
+        (result) => callback({ requestHeaders: result.headers }),
+        () => callback({ requestHeaders: h })
+      );
     });
   } catch (e) { console.error('[session] header hook', e); }
 
@@ -99,16 +101,11 @@ function configureSession(ses, fp, partition, opts = {}) {
   try {
     ses.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
       const rules = settings.get().matchReplace || [];
-      if (!rules.length) return callback({});
-      const h = {};
-      for (const [name, value] of Object.entries(details.responseHeaders || {})) {
-        h[name] = Array.isArray(value) ? value.join(', ') : String(value);
-      }
-      const res = rewrite.applyHeaders(h, rules, 'responseHeader');
-      if (!res.changed) return callback({});
-      const out = {};
-      for (const [name, value] of Object.entries(res.headers)) out[name] = [String(value)];
-      callback({ responseHeaders: out });
+      if (!rules.some((rule) => rule.enabled !== false && rule.target === 'responseHeader' && rule.match)) return callback({});
+      require('./rule-executor').apply({ kind: 'headers', rules, target: 'responseHeader', headers: details.responseHeaders || {} }).then(
+        (result) => callback(result.changed ? { responseHeaders: result.headers } : {}),
+        () => callback({})
+      );
     });
   } catch {}
 
