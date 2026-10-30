@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fall back to public GitHub release metadata when the API is unavailable;
+  command-line updates still require GitHub's SHA-256 digest before replacing files.
 - Audit profile entropy, canvas/audio consistency, timezone semantics, native
   worker initialization, header coherence and storage teardown.
 - Await proxy setup before target navigation and reject cross-tab identity access.

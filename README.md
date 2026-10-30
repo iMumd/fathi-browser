@@ -68,6 +68,9 @@ archive. macOS offers Intel and Apple Silicon archives.
 Save your browsing work before running an updater. Commands install the latest
 **published** release, verify its download checksum and version, and preserve
 preferences. Windows installed builds also support in-app installation.
+If GitHub's API is unavailable, the updater uses the public release page and
+asset digests instead. It never skips checksum verification to work around a
+network failure. If both sources fail, no installation is changed.
 
 ### Linux
 
