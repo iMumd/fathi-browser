@@ -10,6 +10,7 @@ Built with Electron and Chromium for Windows, Linux, and macOS.
 [Download](https://github.com/iMumd/fathi-browser/releases/latest) ·
 [Research guide](docs/research-workspace.md) ·
 [Identity audit](docs/identity-audit.md) ·
+[Interception and rules](docs/interception-and-rules.md) ·
 [Contribute](CONTRIBUTING.md) ·
 [Changelog](CHANGELOG.md)
 
@@ -34,6 +35,12 @@ still **1.0.2**. Updating a released installation does not install unreleased co
 4. Open **Flow** to filter traffic, inspect headers, and review security notes.
 5. Pin one response as a baseline, open another, and select **Compare**.
 6. Export only the filtered records. Use **Redacted JSON** when sharing context.
+
+Intercept keeps the pending queue visible while you edit a request. Switch
+between requests without losing drafts; Forward and Drop stay at the top.
+Live rules cover header values and supported text bodies, including when
+manual interception is off. See the [rule limits](docs/interception-and-rules.md)
+before relying on a transformation.
 
 Research tools do not automatically crawl, scan, or attack targets. Passive
 notes do not issue extra requests and are not confirmed vulnerability reports.

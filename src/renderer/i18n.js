@@ -6,6 +6,7 @@
 (function () {
   const DICT = {
     en: {
+      'mr.notApplied': 'A rule could not be applied; traffic continued unchanged',
       'proxy.importCa': 'Import Burp public CA',
       'proxy.fetchCa': 'Retrieve local Burp CA',
       'proxy.caReady': 'Burp public CA verified and trusted inside Fathi.',
@@ -556,6 +557,7 @@
     },
 
     ar: {
+      'mr.notApplied': 'تعذر تطبيق قاعدة؛ استمر الطلب دون تعديل',
       'proxy.importCa': 'استيراد شهادة CA العامة لبارب',
       'proxy.fetchCa': 'جلب شهادة Burp المحلي',
       'proxy.caReady': 'تم التحقق من شهادة Burp العامة وتوثيقها داخل فتحي.',

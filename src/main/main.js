@@ -409,6 +409,7 @@ ipcMain.handle('fathi:tab:ready', async (event, wcId) => {
     const rec = wc && recordForWebContents(wc);
     if (!rec) return fail('Unknown tab session');
     await identityRuntime.ready(wc, rec.fp);
+    await intercept.ready(wc);
     return ok({});
   } catch (error) { return fail(error); }
 });
@@ -576,7 +577,11 @@ ipcMain.handle('fathi:intercept:filter', (event, { filter } = {}) => {
 /* --- repeat: resend an edited request and return its response */
 ipcMain.handle('fathi:intercept:repeat', async (event, payload = {}) => {
   try {
-    const res = await intercept.sendRequest(payload);
+    if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may repeat requests');
+    const wc = webContents.fromId(Number(payload.wcId));
+    const rec = wc && recordForWebContents(wc);
+    if (!rec) return fail('The source tab has closed');
+    const res = await intercept.sendRequest({ ...payload, partition: rec.partition });
     return res.ok ? ok({ response: res.response }) : fail(res.error);
   } catch (e) { return fail(e); }
 });
@@ -615,7 +620,8 @@ ipcMain.handle('fathi:rules:test', async (_event, input) => {
   });
 });
 
-ipcMain.handle('fathi:rules:save', (event, { rules } = {}) => {
+ipcMain.handle('fathi:rules:save', async (event, { rules } = {}) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may change rules');
   try {
     const clean = (Array.isArray(rules) ? rules : []).map((r) => ({
       id: String(r && r.id || rewrite.newId()),
@@ -626,7 +632,10 @@ ipcMain.handle('fathi:rules:save', (event, { rules } = {}) => {
       regex: !!(r && r.regex),
       caseSensitive: !!(r && r.caseSensitive)
     })).filter((r) => r.match);
+    if (clean.length > 100 || clean.some((rule) => rule.match.length > 4096 || rule.replace.length > 65536)) return fail('Rules exceed supported limits');
+    for (const rule of clean) if (rule.regex) { try { new RegExp(rule.match); } catch { return fail('Invalid regular expression'); } }
     const cfg = settings.save({ matchReplace: clean });
+    await intercept.refresh();
     if (mainWindow) mainWindow.webContents.send('fathi:settings:changed', cfg);
     return ok({ rules: cfg.matchReplace });
   } catch (e) { return fail(e); }

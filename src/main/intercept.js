@@ -1,371 +1,177 @@
 'use strict';
-/**
- * Fathi interceptor. Pause web requests and let the UI edit, forward, drop or
- * repeat them before they leave the tab.
- *
- * Implemented with the Chrome DevTools Protocol "Fetch" domain on each tab's
- * guest WebContents, so it works together with the Burp proxy: Fathi pauses
- * first, then the request goes on to Burp exactly as edited.
- *
- * Rules:
- *  - Nothing may stay paused forever. A stuck pause freezes the whole tab, so
- *    every paused request carries a deadline and is auto-forwarded.
- *  - Response inspection reuses the flow recorder (network.js) instead of a
- *    second debugger client, which would fight with DevTools.
- */
+/** Shared Fetch client for explicit interception and bounded body rules.
+ * Header rules belong to session.webRequest and must not be applied twice. */
 const settings = require('./settings');
-const rewrite = require('./rewrite');
-const researchScope = require('./research-scope');
-
-const AUTO_FORWARD_MS = 120000;   // paused request lifetime
-const MAX_PAUSED = 80;            // hard stop on unbounded pause growth
-
+const scope = require('./research-scope');
+const executor = require('./rule-executor');
+const MAX_BODY = 65536;
+const AUTO_FORWARD_MS = 120000;
+const MAX_PAUSED = 80;
 let win = null;
 let enabled = false;
-
-const guests = new Map();       // wcId -> webContents
-const paused = new Map();       // requestId -> record
-const wired = new WeakSet();    // debugger objects with listeners
-const enabling = new Set();     // wcIds with an enable in flight
-
-/* ---------------------------------------------------------------- helpers */
-
-function init(mainWindow) {
-  win = mainWindow;
-  enabled = !!(settings.get().intercept || {}).enabled;
-}
+const guests = new Map();
+const paused = new Map();
+const configuring = new Map();
 
 function send(channel, payload) {
+  if (win && !win.isDestroyed()) { try { win.webContents.send(channel, payload); } catch {} }
+}
+function state() { return { enabled, paused: paused.size, ids: [...paused.keys()], attached: guests.size, filter: settings.get().intercept?.filter || '' }; }
+function init(window) { win = window; enabled = !!settings.get().intercept?.enabled; }
+executor.events.on('failure', error);
+function rules(target) { return (settings.get().matchReplace || []).filter((rule) => rule.enabled !== false && rule.match && rule.target === target); }
+function isWeb(url) { return /^https?:\/\//i.test(String(url)); }
+function matches(url) {
+  const filter = String(settings.get().intercept?.filter || '').trim().toLowerCase();
+  return (!filter || filter.split(/\s+/).some((part) => url.toLowerCase().includes(part))) && scope.allows(url);
+}
+function error(error) { send('fathi:rules:error', { message: String(error.message || error) }); }
+async function rewriteBody(payload, target) {
+  const list = rules(target);
+  if (!list.length) return { output: payload, changed: false };
+  if (Buffer.byteLength(payload) > MAX_BODY) { error(new Error('Body exceeds 64 KiB; rules skipped')); return { output: payload, changed: false }; }
+  try { return await executor.apply({ payload, rules: list, target }); }
+  catch (reason) { error(reason); return { output: payload, changed: false }; }
+}
+function publicRecord(rec) {
+  return { id: rec.id, wcId: rec.wcId, method: rec.method, url: rec.url, resourceType: rec.resourceType, headers: rec.headers, postData: rec.postData, at: rec.at, stage: 'request', hasResponse: false };
+}
+function resolved(id) { paused.delete(id); send('fathi:intercept:resolved', { id }); send('fathi:intercept:state', state()); }
+function continuation(rec, edits = {}) {
+  const params = { requestId: rec.rawId };
+  if (edits.url && edits.url !== rec.url) params.url = String(edits.url);
+  if (edits.method) params.method = String(edits.method).toUpperCase();
+  const method = params.method || rec.method;
+  const body = typeof edits.postData === 'string' ? edits.postData : rec.postData;
+  const bodyChanged = body !== rec.originalPostData && !/^(GET|HEAD)$/i.test(method);
+  if (bodyChanged) params.postData = Buffer.from(body, 'utf8').toString('base64');
+  if (Array.isArray(edits.headers)) params.headers = edits.headers;
+  else if (bodyChanged) params.headers = Object.entries(rec.headers).map(([name, value]) => ({ name, value: String(value) }));
+  if (bodyChanged && params.headers) params.headers = params.headers.filter((header) => !/^(content-length|transfer-encoding)$/i.test(header.name));
+  return params;
+}
+async function resolve({ id, action = 'continue', ...edits } = {}) {
+  const rec = paused.get(id);
+  if (!rec) return { ok: false, error: 'Request is no longer paused' };
   try {
-    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
-  } catch {}
+    if (action === 'drop') await rec.wc.debugger.sendCommand('Fetch.failRequest', { requestId: rec.rawId, errorReason: 'Aborted' });
+    else await rec.wc.debugger.sendCommand('Fetch.continueRequest', continuation(rec, edits));
+    resolved(id); return { ok: true };
+  } catch (reason) { return { ok: false, error: String(reason.message || reason) }; }
 }
-
-function state() {
-  return {
-    enabled,
-    paused: paused.size,
-    attached: guests.size,
-    filter: (settings.get().intercept || {}).filter || ''
-  };
+async function drain() {
+  const ids = [...paused.keys()]; let forwarded = 0;
+  for (const id of ids) if ((await resolve({ id })).ok) forwarded++;
+  return { ok: true, forwarded };
 }
-
-function isWebUrl(url) {
-  return !/^(fathi|chrome-extension|devtools|data|blob|about|chrome|javascript):/i.test(String(url || ''));
-}
-
-function matchesFilter(url) {
-  const filter = String((settings.get().intercept || {}).filter || '').trim().toLowerCase();
-  if (!filter) return true;
-  const u = String(url || '').toLowerCase();
-  return filter.split(/\s+/).some((part) => part && u.includes(part));
-}
-
-/** Match and Replace on the request headers and body of a paused request. */
-function applyRules(rec) {
-  const rules = settings.get().matchReplace || [];
-  if (!rules.length) return { headers: rec.headers, postData: rec.postData };
-  const hdr = rewrite.applyHeaders(rec.headers || {}, rules, 'requestHeader');
-  const body = rewrite.applyBody(rec.postData || '', rules, 'requestBody');
-  return {
-    headers: hdr.headers,
-    postData: body.changed ? body.body : rec.postData
-  };
-}
-
-/* ------------------------------------------------------------ debugger ops */
-
-async function continueRaw(rec) {
-  try { await rec.wc.debugger.sendCommand('Fetch.continueRequest', { requestId: rec.id }); } catch {}
-}
-
-/* --------------------------------------------------------------- enable */
-
-async function enableOn(wc) {
-  if (!wc || wc.isDestroyed() || enabling.has(wc.id)) return;
-  enabling.add(wc.id);
-  try {
-    const dbg = wc.debugger;
-    if (!dbg.isAttached()) dbg.attach('1.3');
-    const patterns = [{ urlPattern: '*', requestStage: 'Request' }];
-    // Response bodies are only worth the round trip while the UI can show them.
-    patterns.push({ urlPattern: '*', requestStage: 'Response' });
-    await dbg.sendCommand('Fetch.enable', { patterns });
-  } catch (e) {
-    // Another debugger (DevTools) may be attached; retry on the next load.
-  } finally {
-    enabling.delete(wc.id);
-  }
-}
-
-async function disableOn(wc) {
+async function configure(wc) {
   if (!wc || wc.isDestroyed()) return;
-  for (const rec of Array.from(paused.values())) {
-    if (rec.wcId === wc.id) {
-      paused.delete(rec.id);
-      await continueRaw(rec);
+  if (configuring.has(wc.id)) await configuring.get(wc.id).catch(() => {});
+  const job = (async () => {
+    const patterns = [];
+    if (enabled || rules('requestBody').length) patterns.push({ urlPattern: '*', requestStage: 'Request' });
+    if (rules('responseBody').length) patterns.push({ urlPattern: '*', requestStage: 'Response' });
+    if (!patterns.length) {
+      for (const rec of [...paused.values()]) if (rec.wcId === wc.id) await resolve({ id: rec.id });
+      if (wc.debugger.isAttached()) await wc.debugger.sendCommand('Fetch.disable');
+      return;
     }
-  }
-  try {
-    if (wc.debugger.isAttached()) await wc.debugger.sendCommand('Fetch.disable');
-  } catch {}
+    if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
+    await wc.debugger.sendCommand('Fetch.enable', { patterns });
+  })();
+  configuring.set(wc.id, job);
+  try { await job; } finally { if (configuring.get(wc.id) === job) configuring.delete(wc.id); }
 }
-
-/* ---------------------------------------------------------------- wiring */
-
+async function refresh() {
+  await Promise.all([...guests.values()].map((wc) => configure(wc)));
+}
+async function response(wc, params) {
+  const requestId = params.requestId;
+  const headers = params.responseHeaders || [];
+  const type = headers.find((header) => header.name.toLowerCase() === 'content-type')?.value || '';
+  const length = Number(headers.find((header) => header.name.toLowerCase() === 'content-length')?.value || 0);
+  const status = params.responseStatusCode;
+  const text = /^(text\/|application\/(?:json|javascript|xml|x-www-form-urlencoded))|\+(?:json|xml)(?:;|$)/i.test(type);
+  try {
+    if (rules('responseBody').length && isWeb(params.request?.url) && text && status >= 200 && status < 300 && status !== 204 && status !== 206 && params.request?.method !== 'HEAD' && length <= MAX_BODY) {
+      const body = await wc.debugger.sendCommand('Fetch.getResponseBody', { requestId });
+      const payload = body.base64Encoded ? new TextDecoder('utf-8', { fatal: true }).decode(Buffer.from(body.body, 'base64')) : String(body.body || '');
+      const result = await rewriteBody(payload, 'responseBody');
+      if (result.changed) {
+        const responseHeaders = headers.filter((header) => !/^(content-length|content-encoding|transfer-encoding|etag|content-md5|digest)$/i.test(header.name)).map((header) => header.name.toLowerCase() === 'content-type' ? { ...header, value: header.value.replace(/;\s*charset\s*=\s*["']?[^;"'\s]+["']?/i, '') + '; charset=utf-8' } : header);
+        responseHeaders.push({ name: 'Content-Length', value: String(Buffer.byteLength(result.output)) });
+        await wc.debugger.sendCommand('Fetch.fulfillRequest', { requestId, responseCode: status, responseHeaders, body: Buffer.from(result.output).toString('base64') });
+        return;
+      }
+    } else if (rules('responseBody').length && length > MAX_BODY) error(new Error('Response exceeds 64 KiB; body rules skipped'));
+  } catch (reason) { error(reason); }
+  try { await wc.debugger.sendCommand('Fetch.continueResponse', { requestId }); }
+  catch { await wc.debugger.sendCommand('Fetch.continueRequest', { requestId }).catch(() => {}); }
+}
+async function request(wc, params) {
+  if (params.responseStatusCode !== undefined || params.responseErrorReason) return response(wc, params);
+  const input = params.request;
+  if (!input || !params.requestId) return;
+  const rec = { id: `${wc.id}:${params.requestId}`, rawId: params.requestId, wcId: wc.id, wc, url: input.url, method: input.method || 'GET', headers: input.headers || {}, postData: input.postData || '', originalPostData: input.postData || '', resourceType: params.resourceType || 'Other', at: Date.now(), deadline: Date.now() + AUTO_FORWARD_MS };
+  if (isWeb(rec.url) && !/^(GET|HEAD)$/i.test(rec.method)) {
+    if (input.hasPostData && typeof input.postData !== 'string' && rules('requestBody').length) error(new Error('Request body is not available as text; body rules skipped'));
+    else rec.postData = (await rewriteBody(rec.postData, 'requestBody')).output;
+  }
+  if (!enabled || !isWeb(rec.url) || !matches(rec.url) || paused.size >= MAX_PAUSED) {
+    await wc.debugger.sendCommand('Fetch.continueRequest', continuation(rec)); return;
+  }
+  paused.set(rec.id, rec); send('fathi:intercept:paused', publicRecord(rec)); send('fathi:intercept:state', state());
+}
 function attach(wc) {
   if (!wc || guests.has(wc.id)) return;
   guests.set(wc.id, wc);
-
-  const dbg = wc.debugger;
-  if (!wired.has(dbg)) {
-    wired.add(dbg);
-    dbg.on('message', (_e, method, params) => onMessage(wc, method, params));
-    dbg.on('detach', () => {
-      // DevTools took the debugger; every pause it owned is gone with it.
-      for (const rec of Array.from(paused.values())) {
-        if (rec.wcId === wc.id) paused.delete(rec.id);
-      }
-      send('fathi:intercept:state', state());
-    });
-  }
-
-  const kick = () => { if (enabled) enableOn(wc).catch(() => {}); };
-  kick();
-  wc.once('dom-ready', kick);
-
-  wc.once('destroyed', () => {
-    guests.delete(wc.id);
-    for (const rec of Array.from(paused.values())) {
-      if (rec.wcId === wc.id) paused.delete(rec.id);
-    }
-    send('fathi:intercept:state', state());
-  });
+  wc.debugger.on('message', (_event, method, params) => { if (method === 'Fetch.requestPaused') request(wc, params).catch(error); });
+  const forget = () => { for (const rec of [...paused.values()]) if (rec.wcId === wc.id) resolved(rec.id); };
+  wc.debugger.on('detach', forget);
+  wc.once('destroyed', () => { forget(); guests.delete(wc.id); });
+  const kick = () => configure(wc).catch(error);
+  kick(); wc.once('dom-ready', kick); wc.on('devtools-closed', kick);
 }
-
-/* --------------------------------------------------------------- capture */
-
-function emitPaused(rec) {
-  paused.set(rec.id, { ...rec, wc: rec.wc });
-  send('fathi:intercept:paused', publicRecord(rec));
-  send('fathi:intercept:state', state());
+async function setEnabled(on) {
+  enabled = !!on; settings.save({ intercept: { enabled } });
+  if (!enabled) await drain();
+  await refresh(); send('fathi:intercept:state', state());
+  return state();
 }
+function setFilter(filter) { settings.save({ intercept: { filter: String(filter || '') } }); send('fathi:intercept:state', state()); return state(); }
+setInterval(() => { for (const rec of paused.values()) if (Date.now() > rec.deadline) resolve({ id: rec.id }).catch(() => {}); }, 5000).unref?.();
 
-function publicRecord(rec) {
-  return {
-    id: rec.id,
-    wcId: rec.wcId,
-    method: rec.method,
-    url: rec.url,
-    resourceType: rec.resourceType,
-    headers: rec.headers || {},
-    postData: rec.postData || '',
-    at: rec.at,
-    stage: rec.stage || 'request',
-    hasResponse: !!rec.hasResponse
-  };
-}
-
-async function onMessage(wc, method, params) {
-  if (method === 'Fetch.requestPaused') return onRequestPaused(wc, params);
-  if (method === 'Fetch.responsePaused') return onResponsePaused(wc, params);
-}
-
-async function onRequestPaused(wc, params) {
-  const { requestId, request, resourceType } = params || {};
-  if (!requestId || !request) return;
-
-  const rec = {
-    id: requestId,
-    wcId: wc.id,
-    method: request.method || 'GET',
-    url: request.url || '',
-    resourceType: resourceType || 'Other',
-    headers: request.headers || {},
-    postData: request.postData || '',
-    at: Date.now(),
-    stage: 'request',
-    wc
-  };
-
-  if (!enabled || !isWebUrl(rec.url) || !matchesFilter(rec.url) || !researchScope.allows(rec.url)) {
-    try { await wc.debugger.sendCommand('Fetch.continueRequest', { requestId }); } catch {}
-    return;
-  }
-
-  if (paused.size >= MAX_PAUSED) {
-    // Refuse to pile up. Reading the list is still possible while paused.
-    try { await wc.debugger.sendCommand('Fetch.continueRequest', { requestId }); } catch {}
-    return;
-  }
-
-  const rewritten = applyRules(rec);
-  rec.headers = rewritten.headers;
-  rec.postData = rewritten.postData;
-  rec.deadline = Date.now() + AUTO_FORWARD_MS;
-  emitPaused(rec);
-}
-
-async function onResponsePaused(wc, params) {
-  const { requestId } = params || {};
-  const rec = requestId ? paused.get(requestId) : null;
-  // Only keep a response pause alive when the UI is actually inspecting it.
-  if (!rec || !rec.watchResponse) {
-    try { await wc.debugger.sendCommand('Fetch.continueResponse', { requestId }); } catch {}
-    return;
-  }
-  rec.hasResponse = true;
-  rec.responseHeaders = params.responseHeaders || {};
-  rec.responseStatusCode = params.responseStatusCode || 0;
-  send('fathi:intercept:paused', publicRecord(rec));
-}
-
-/* ------------------------------------------------------------- operations */
-
-/**
- * Send one request through a clean tab session and return the response.
- * Used by the Repeat action: same URL, method and headers, body as edited.
- * Runs on a throwaway in-memory session so it inherits proxy and cert trust
- * without touching the tab that originated the request.
- */
-async function sendRequest({ url, method = 'GET', headers = {}, postData = '', partition = '' } = {}) {
-  if (!url) return { ok: false, error: 'missing url' };
+async function sendRequest({ url, method = 'GET', headers = {}, postData = '', partition } = {}) {
+  if (!isWeb(url) || !partition) return { ok: false, error: 'Repeat requires a known tab and an HTTP(S) URL' };
   const { net, session } = require('electron');
   const started = Date.now();
-
-  let ses = null;
+  const verb = String(method).toUpperCase();
+  // The editor already contains request-body rule output. Repeat sends those
+  // explicit edits as-is rather than applying non-idempotent rules twice.
+  const payload = /^(GET|HEAD)$/.test(verb) ? '' : String(postData);
   try {
-    ses = partition ? session.fromPartition(partition) : session.fromPartition('fathi-repeat-' + Date.now().toString(36));
-  } catch {}
-
-  try {
-    const res = await new Promise((resolvePromise, rejectPromise) => {
-      const req = ses
-        ? net.request({ session: ses, method: String(method || 'GET').toUpperCase(), url, redirect: 'follow' })
-        : net.request({ method: String(method || 'GET').toUpperCase(), url, redirect: 'follow' });
-
-      for (const [name, value] of Object.entries(headers || {})) {
-        try { req.setHeader(String(name), String(value)); } catch {}
-      }
-
-      const done = (payload) => resolvePromise(payload);
-      req.on('response', (response) => {
-        const chunks = [];
-        let bytes = 0;
-        const mime = String(response.headers['content-type'] || '');
-        response.on('data', (chunk) => {
-          bytes += chunk.length;
-          if (bytes <= 512 * 1024) chunks.push(chunk);
-        });
-        response.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf8');
-          done({
-            status: response.statusCode,
-            statusText: response.statusMessage || '',
-            headers: response.headers || {},
-            mimeType: mime,
-            body,
-            truncated: bytes > 512 * 1024,
-            size: bytes,
-            time: Date.now() - started
-          });
-        });
-        response.on('error', (e) => rejectPromise(e));
+    const result = await new Promise((accept, reject) => {
+      const req = net.request({ session: session.fromPartition(partition), useSessionCookies: true, method: verb, url, redirect: 'manual' });
+      const timer = setTimeout(() => { req.abort(); reject(new Error('Repeat timed out after 15 seconds')); }, 15000);
+      const done = (value) => { clearTimeout(timer); accept(value); };
+      for (const [name, value] of Object.entries(headers)) if (!/^(content-length|transfer-encoding)$/i.test(name)) { try { req.setHeader(name, String(value)); } catch {} }
+      req.on('redirect', (status, _method, target, responseHeaders) => { done({ status, statusText: 'Redirect not followed', headers: responseHeaders, redirectURL: target, body: '', time: Date.now() - started }); req.abort(); });
+      req.on('error', (reason) => { clearTimeout(timer); reject(reason); });
+      req.on('login', (auth, callback) => {
+        if (!auth.isProxy) { callback(); return; }
+        const entry = require('./proxy').entryFor(partition);
+        callback(entry?.username || '', entry?.password || '');
       });
-      req.on('error', (e) => rejectPromise(e));
-
-      if (postData && !/^(GET|HEAD)$/i.test(method)) req.write(String(postData));
-      req.end();
+      req.on('response', (res) => {
+        const chunks = []; let bytes = 0;
+        const finish = () => done({ status: res.statusCode, statusText: res.statusMessage, headers: res.headers, mimeType: String(res.headers['content-type'] || ''), body: Buffer.concat(chunks).toString('utf8'), size: bytes, truncated: bytes > 512 * 1024, time: Date.now() - started });
+        res.on('data', (chunk) => { bytes += chunk.length; if (bytes <= 512 * 1024) chunks.push(chunk); else { finish(); req.abort(); } });
+        res.on('end', finish); res.on('error', (reason) => { clearTimeout(timer); reject(reason); });
+      });
+      if (payload) req.write(payload); req.end();
     });
-
-    return { ok: true, response: res };
-  } catch (e) {
-    return { ok: false, error: String(e && e.message || e) };
-  }
+    if (rules('responseBody').length && result.body) result.body = (await rewriteBody(result.body, 'responseBody')).output;
+    return { ok: true, response: result };
+  } catch (reason) { return { ok: false, error: String(reason.message || reason) }; }
 }
-
-async function resolve({ id, action = 'continue', url, method, headers, postData } = {}) {
-  const rec = paused.get(id);
-  if (!rec) return { ok: false, error: 'request is no longer paused' };
-  paused.delete(id);
-
-  try {
-    if (action === 'drop') {
-      await rec.wc.debugger.sendCommand('Fetch.failRequest', { requestId: id, errorReason: 'Aborted' });
-    } else {
-      const params = { requestId: id };
-      if (url && url !== rec.url) params.url = String(url);
-      if (method && method !== rec.method) params.method = String(method).toUpperCase();
-      if (Array.isArray(headers) && headers.length) params.headers = headers;
-      const useMethod = params.method || rec.method;
-      if (typeof postData === 'string' && postData !== rec.postData && !/^(GET|HEAD)$/i.test(useMethod)) {
-        params.postData = Buffer.from(postData, 'utf8').toString('base64');
-      }
-      if (rec.stage === 'response') {
-        await rec.wc.debugger.sendCommand('Fetch.continueResponse', { requestId: id });
-      } else {
-        await rec.wc.debugger.sendCommand('Fetch.continueRequest', params);
-      }
-    }
-  } catch (e) {
-    send('fathi:intercept:state', state());
-    return { ok: false, error: String(e && e.message || e) };
-  }
-
-  send('fathi:intercept:resolved', { id });
-  send('fathi:intercept:state', state());
-  return { ok: true };
-}
-
-async function drain() {
-  const all = Array.from(paused.values());
-  paused.clear();
-  for (const rec of all) {
-    if (rec.stage === 'response') {
-      try { await rec.wc.debugger.sendCommand('Fetch.continueResponse', { requestId: rec.id }); } catch {}
-    } else {
-      await continueRaw(rec);
-    }
-  }
-  send('fathi:intercept:state', state());
-  return { ok: true, forwarded: all.length };
-}
-
-/* -------------------------------------------------------------- lifecycle */
-
-/** Auto-forward anything the user left sitting for too long. */
-setInterval(() => {
-  const now = Date.now();
-  for (const rec of Array.from(paused.values())) {
-    if (rec.deadline && now > rec.deadline) {
-      paused.delete(rec.id);
-      if (rec.stage === 'response') {
-        try { rec.wc.debugger.sendCommand('Fetch.continueResponse', { requestId: rec.id }); } catch {}
-      } else {
-        continueRaw(rec);
-      }
-    }
-  }
-}, 5000).unref?.();
-
-async function setEnabled(on) {
-  enabled = !!on;
-  settings.save({ intercept: { enabled } });
-
-  for (const wc of guests.values()) {
-    if (enabled) await enableOn(wc);
-    else await disableOn(wc);
-  }
-
-  send('fathi:intercept:state', state());
-  if (win && !win.isDestroyed()) win.webContents.send('fathi:settings:changed', settings.get());
-  return state();
-}
-
-function setFilter(filter) {
-  settings.save({ intercept: { filter: String(filter || '') } });
-  send('fathi:intercept:state', state());
-  return state();
-}
-
-module.exports = { init, attach, resolve, drain, setEnabled, setFilter, state, sendRequest };
+module.exports = { init, attach, resolve, drain, setEnabled, setFilter, state, sendRequest, refresh, ready: configure };

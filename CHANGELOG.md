@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Keep the interception queue visible while editing, preserve per-request
+  drafts and advance selection after Forward or Drop.
+- Apply all four rule targets to live traffic, including body rules with
+  Intercept off; preserve repeated headers and enforce worker timeouts.
+- Send Repeat through the source tab session and report redirects without
+  automatically following them.
 - Fall back to public GitHub release metadata when the API is unavailable;
   command-line updates still require GitHub's SHA-256 digest before replacing files.
 - Audit profile entropy, canvas/audio consistency, timezone semantics, native
