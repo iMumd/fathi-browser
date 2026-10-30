@@ -21,6 +21,7 @@ from pathlib import Path
 p = Path(os.environ['FIXTURE'])
 a = {'name': 'Fathi-1.0.2-linux-x64.tar.gz', 'digest': 'sha256:' + hashlib.sha256((p / 'archive').read_bytes()).hexdigest(), 'browser_download_url': 'https://github.com/iMumd/fathi-browser/releases/download/v1.0.2/Fathi-1.0.2-linux-x64.tar.gz'}
 (p / 'release.json').write_text(json.dumps({'tag_name': 'v1.0.2', 'assets': [a]}))
+(p / 'assets.html').write_text('<a href="/iMumd/fathi-browser/releases/download/v1.0.2/Fathi-1.0.2-linux-x64.tar.gz">Linux</a><clipboard-copy aria-label="Copy to clipboard digest for Fathi-1.0.2-linux-x64.tar.gz" value="' + a['digest'] + '"></clipboard-copy>')
 PY
 cat > "$FIXTURE/bin/curl" <<'MOCK'
 #!/usr/bin/env bash
@@ -35,7 +36,9 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$url" in
-  https://api.github.com/*) cp "$FIXTURE/release.json" "$out" ;;
+  https://api.github.com/*) if [ -f "$FIXTURE/api-down" ]; then exit 22; else cp "$FIXTURE/release.json" "$out"; fi ;;
+  https://github.com/iMumd/fathi-browser/releases/latest) echo '<html></html>' > "$out"; printf 'https://github.com/iMumd/fathi-browser/releases/tag/v1.0.2' ;;
+  https://github.com/iMumd/fathi-browser/releases/expanded_assets/v1.0.2) cp "$FIXTURE/assets.html" "$out" ;;
   *) cp "$FIXTURE/archive" "$out" ;;
 esac
 MOCK
@@ -47,6 +50,11 @@ bash "$ROOT/tools/update-fathi.sh"
 test "$(readlink /usr/local/bin/fathi)" = /opt/fathi/fathi
 test "$(stat -c %a /opt/fathi/chrome-sandbox)" = 4755
 grep -q 'Exec=/opt/fathi/fathi %U' "$HOME/.local/share/applications/old-fathi.desktop"
+cmp "$FIXTURE/Fathi-1.0.2-linux-x64/resources/app.asar" /opt/fathi/resources/app.asar
+touch "$FIXTURE/api-down"
+bash "$ROOT/tools/update-fathi.sh" > "$FIXTURE/fallback.log"
+grep -q 'API unavailable' "$FIXTURE/fallback.log"
+grep -q 'Installed and verified v1.0.2' "$FIXTURE/fallback.log"
 cmp "$FIXTURE/Fathi-1.0.2-linux-x64/resources/app.asar" /opt/fathi/resources/app.asar
 echo tampered >> "$FIXTURE/archive"
 if bash "$ROOT/tools/update-fathi.sh" > "$FIXTURE/failure.log" 2>&1; then echo 'Checksum mismatch was not rejected'; exit 1; fi

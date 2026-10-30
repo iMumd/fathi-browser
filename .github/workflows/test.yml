@@ -28,3 +28,7 @@ jobs:
           $parseErrors = $null
           [System.Management.Automation.Language.Parser]::ParseFile("$PWD/tools/update-fathi.ps1", [ref]$null, [ref]$parseErrors) | Out-Null
           if ($parseErrors) { $parseErrors; exit 1 }
+      - name: Test Windows API-404 fallback without installing
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/test-update-metadata.ps1

@@ -68,6 +68,7 @@ function isNewer(a, b) {
 }
 
 async function latestRelease() {
+  try {
   const res = await net.fetch(API_URL, {
     headers: {
       Accept: 'application/vnd.github+json',
@@ -75,7 +76,15 @@ async function latestRelease() {
     }
   });
   if (!res.ok) throw new Error(`GitHub responded with ${res.status}`);
-  return res.json();
+  return await res.json();
+  } catch {
+    const page = await net.fetch(RELEASE_PAGE);
+    if (!page.ok) throw new Error(`Public release page responded with ${page.status}`);
+    const url = new URL(page.url);
+    const match = url.pathname.match(/^\/iMumd\/fathi-browser\/releases\/tag\/(v\d+\.\d+\.\d+)$/);
+    if (url.protocol !== 'https:' || url.host !== 'github.com' || !match) throw new Error('Could not resolve the latest stable release');
+    return { tag_name: match[1], html_url: page.url, body: '' };
+  }
 }
 
 /** Check through the GitHub API. Used by manual builds and as a fallback. */

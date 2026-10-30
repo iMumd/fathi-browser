@@ -26,7 +26,42 @@ case "$(uname -s)/$(uname -m)" in
 esac
 
 echo '[Fathi Updater] Checking for updates...'
-curl -fsSL "$API" -o "$WORKDIR/release.json"
+if ! curl -fsSL --retry 2 --connect-timeout 15 --max-time 45 "$API" -o "$WORKDIR/release.json"; then
+  echo '[Fathi Updater] GitHub API unavailable. Checking the public release page...'
+  LATEST_URL=$(curl -fsSL --retry 2 --connect-timeout 15 --max-time 45 -o "$WORKDIR/latest.html" -w '%{url_effective}' "https://github.com/$REPO/releases/latest")
+  PUBLIC_TAG=$(python3 - "$LATEST_URL" <<'PY'
+import re, sys, urllib.parse
+u = urllib.parse.urlsplit(sys.argv[1])
+m = re.fullmatch(r'/iMumd/fathi-browser/releases/tag/(v\d+\.\d+\.\d+)', u.path)
+if u.scheme != 'https' or u.netloc != 'github.com' or not m:
+    raise SystemExit('Could not resolve a stable public release. No files were changed.')
+print(m[1])
+PY
+  )
+  curl -fsSL --retry 2 --connect-timeout 15 --max-time 45 "https://github.com/$REPO/releases/expanded_assets/$PUBLIC_TAG" -o "$WORKDIR/assets.html"
+  python3 - "$WORKDIR/assets.html" "$PUBLIC_TAG" > "$WORKDIR/release.json" <<'PY'
+import html.parser, json, re, sys, urllib.parse
+tag = sys.argv[2]
+prefix = '/iMumd/fathi-browser/releases/download/' + tag + '/'
+class Assets(html.parser.HTMLParser):
+    def __init__(self): super().__init__(); self.assets = {}; self.digests = {}
+    def handle_starttag(self, name, attrs):
+        a = dict(attrs)
+        if name == 'a' and a.get('href', '').startswith(prefix):
+            href = a['href']; filename = urllib.parse.unquote(href[len(prefix):])
+            if '/' not in filename:
+                self.assets[filename] = {'name': filename, 'browser_download_url': 'https://github.com' + href}
+        label = a.get('aria-label', '')
+        if name == 'clipboard-copy' and label.startswith('Copy to clipboard digest for '):
+            digest = a.get('value', '')
+            if re.fullmatch(r'sha256:[a-f0-9]{64}', digest): self.digests[label[len('Copy to clipboard digest for '):]] = digest
+p = Assets()
+with open(sys.argv[1], encoding='utf-8') as f: p.feed(f.read())
+for filename, asset in p.assets.items(): asset['digest'] = p.digests.get(filename)
+if not p.assets: raise SystemExit('No verified public release assets were found. No files were changed.')
+print(json.dumps({'tag_name': tag, 'assets': list(p.assets.values())}))
+PY
+fi
 python3 - "$WORKDIR/release.json" "$SUFFIX" > "$WORKDIR/asset" <<'PY'
 import json, re, sys
 r = json.load(open(sys.argv[1]))

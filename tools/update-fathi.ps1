@@ -5,7 +5,26 @@ $temp = Join-Path ([IO.Path]::GetTempPath()) ('fathi-update-' + [guid]::NewGuid(
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'fathi-updater' }
+    try {
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'fathi-updater' } -TimeoutSec 45
+    } catch {
+        Write-Host '[Fathi Updater] GitHub API unavailable. Checking the public release page...'
+        $page = Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$repo/releases/latest" -TimeoutSec 45
+        $uri = $page.BaseResponse.ResponseUri
+        if (-not $uri) { $uri = $page.BaseResponse.RequestMessage.RequestUri }
+        if ($uri.Scheme -ne 'https' -or $uri.Host -ne 'github.com' -or $uri.AbsolutePath -notmatch '^/iMumd/fathi-browser/releases/tag/(v\d+\.\d+\.\d+)$') { throw 'Could not resolve the latest stable public release' }
+        $tag = $Matches[1]
+        $assetPage = (Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$repo/releases/expanded_assets/$tag" -TimeoutSec 45).Content
+        $assets = @()
+        foreach ($kind in @('Setup', 'Portable')) {
+            $filename = "Fathi-$kind-$($tag.Substring(1)).exe"
+            $pattern = 'aria-label="Copy to clipboard digest for ' + [regex]::Escape($filename) + '"[^>]*\bvalue="(sha256:[a-f0-9]{64})"'
+            $match = [regex]::Match($assetPage, $pattern)
+            $path = "/$repo/releases/download/$tag/$filename"
+            if ($match.Success -and $assetPage.Contains('href="' + $path + '"')) { $assets += @{ name = $filename; digest = $match.Groups[1].Value; browser_download_url = "https://github.com$path" } }
+        }
+        $release = @{ tag_name = $tag; assets = $assets }
+    }
     if ($release.tag_name -notmatch '^v\d+\.\d+\.\d+$') { throw 'Invalid stable release version' }
     $version = $release.tag_name.Substring(1)
     $portable = $env:FATHI_PORTABLE_PATH
