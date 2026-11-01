@@ -167,6 +167,14 @@ input, select, textarea { font-family: inherit; color: var(--text); }
 #page-find input { width: min(320px, 50vw); height: 32px; }
 #page-find button { min-width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text); cursor: pointer; }
 #page-find-count { min-width: 60px; font-variant-numeric: tabular-nums; }
+#bookmarks-bar { display: flex; flex: 0 0 auto; gap: 6px; padding: 5px 12px; overflow-x: auto; background: var(--surface); border-bottom: 1px solid var(--border); }
+#bookmarks-bar button { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+.library-row { display: grid; gap: 7px; padding: 12px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.library-row > span { color: var(--muted); font-size: 11px; }
+.library-open { justify-self: start; max-width: 100%; text-align: start; white-space: normal; }
+.library-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.library-table th, .library-table td { padding: 9px 5px; text-align: start; border-bottom: 1px solid var(--border); }
+#settings-nav { overflow-y: auto; min-height: 0; }
 .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 

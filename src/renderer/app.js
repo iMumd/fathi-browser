@@ -33,6 +33,8 @@ const state = {
 
 let seq = 0;
 const closedTabs = []; // URL/device only, bounded and never persisted.
+const sessionLibrary = new SessionLibrary.Store();
+let bookmarkBarVisible = false;
 
 /* ------------------------------------------------------------------ utils */
 
@@ -202,6 +204,7 @@ function searchUrl(query) {
 function normalizeInput(input) {
   const s = String(input || '').trim();
   if (!s) return null;
+  if (s.startsWith('?')) return searchUrl(s.slice(1).trim());
   if (/^fathi:\/\//i.test(s)) return s;
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return s;
   if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^\w+\.\w/.test(s)) return s;
@@ -267,6 +270,15 @@ function makeTabElement(tab) {
 }
 
 async function createTab(opts = {}) {
+  const blank = !opts.url || /^fathi:\/\/newtab(?:[/?#]|$)/i.test(opts.url);
+  const foreground = opts.activate !== false;
+  if (foreground) { closeSettings(); closeGuide(); closeAppMenu(); }
+  if (blank && foreground) {
+    // Focus before asynchronous proxy/session setup, so immediate typing lands
+    // in the omnibox instead of the previous page.
+    omnibox.value = '';
+    omnibox.focus();
+  }
   const prep = await window.api.tab.prepare({
     deviceId: opts.deviceId || (state.settings && state.settings.defaultDevice) || 'desktop',
     landscape: !!opts.landscape
@@ -299,8 +311,9 @@ async function createTab(opts = {}) {
     proxy: prep.proxy,
     wv,
     startUrl,
+    sourceOf: startUrl.startsWith('view-source:') ? startUrl.slice('view-source:'.length) : null,
     identityReady: false,
-    focusAddressOnReady: !opts.url && opts.activate !== false,
+    focusAddressOnReady: blank && foreground,
     url: opts.url || startUrl,
     title: t('tab.new'),
     favicon: null,
@@ -316,7 +329,7 @@ async function createTab(opts = {}) {
   tabstrip.insertBefore(tab.el, ref);
 
   wireWebview(tab);
-  if (opts.activate !== false || !state.activeId) activate(id, { focus: false });
+  if (foreground || !state.activeId) activate(id, { focus: false, preserveAddress: blank && foreground });
 
   // Safety net: if the guest was created but no navigation started (rare
   // first-attach race), kick it once more.
@@ -326,8 +339,9 @@ async function createTab(opts = {}) {
     } catch {}
   }, 1200);
 
-  if (opts.activate !== false) {
-    if (!opts.url) { omnibox.focus(); omnibox.select(); }
+  if (foreground) {
+    if (blank && document.activeElement === omnibox) { /* preserve text already typed */ }
+    else if (blank && state.activeId === id) omnibox.focus();
     else if (state.activeId === id) focusPage(tab);
   }
   refreshFingerprintList();
@@ -337,12 +351,15 @@ async function createTab(opts = {}) {
 function wireWebview(tab) {
   const wv = tab.wv;
   const el = tab.el;
+  const reportedUrl = (url) => tab.sourceOf === url ? 'view-source:' + url : url;
 
   const setTitle = (title) => {
     tab.title = title || t('tab.untitled');
     el.querySelector('.tab-title').textContent = tab.title;
     el.title = tab.title + '\n' + (tab.url || '');
     if (state.activeId === tab.id) document.title = tab.title + ' · Fathi';
+    const visit = sessionLibrary.history.find((item) => item.url === tab.url);
+    if (visit) visit.title = tab.title;
   };
 
   const setFavicon = (src) => {
@@ -385,7 +402,7 @@ function wireWebview(tab) {
 
   wv.addEventListener('did-start-navigation', (e) => {
     if (!e.isMainFrame) return;
-    tab.url = e.url;
+    tab.url = reportedUrl(e.url);
     if (state.activeId === tab.id) {
       updateSecurityIcon();
       if (document.activeElement !== omnibox) updateOmnibox();
@@ -393,13 +410,15 @@ function wireWebview(tab) {
   });
 
   wv.addEventListener('did-navigate', (e) => {
-    tab.url = e.url;
+    tab.url = reportedUrl(e.url);
+    sessionLibrary.visit(tab.url, tab.title);
     if (state.activeId === tab.id) { updateOmnibox(); updateSecurityIcon(); updateNavButtons(); }
   });
 
   wv.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
-    tab.url = e.url;
+    tab.url = reportedUrl(e.url);
+    sessionLibrary.visit(tab.url, tab.title);
     if (state.activeId === tab.id) { updateOmnibox(); updateSecurityIcon(); }
   });
 
@@ -500,11 +519,11 @@ function focusPage(tab = activeTab()) {
   try { tab.wv.focus(); } catch {}
 }
 
-function activate(id, { focus = true } = {}) {
+function activate(id, { focus = true, preserveAddress = false } = {}) {
   const tab = state.tabs.find((x) => x.id === id);
   if (!tab) return;
   if (state.activeId !== id) closeFind(false);
-  omnibox.blur();
+  if (!preserveAddress) omnibox.blur();
   state.activeId = id;
 
   for (const other of state.tabs) {
@@ -690,13 +709,17 @@ function updateChips() {
 omnibox.addEventListener('focus', () => { omnibox.select(); });
 omnibox.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
+    e.preventDefault();
     const v = omnibox.value.trim();
-    if (v) navigate(v);
+    if (v && e.altKey) createTab({ url: normalizeInput(v) });
+    else if (v && (e.ctrlKey || e.metaKey) && !/[\s/:.]/.test(v)) navigate('https://www.' + v + '.com');
+    else if (v) navigate(v);
     else omnibox.blur();
   }
   if (e.key === 'Escape') {
-    updateOmnibox();
+    e.preventDefault();
     omnibox.blur();
+    updateOmnibox(); focusPage();
   }
 });
 omnibox.addEventListener('input', () => {
@@ -1943,23 +1966,79 @@ async function runShortcut(name) {
   const tab = activeTab();
   switch (name) {
     case 'newTab': return createTab();
+    case 'newWindow':
+    case 'newPrivateWindow': {
+      const result = await window.api.win.new();
+      if (!result.ok) toast(result.error, 'err');
+      return;
+    }
     case 'closeTab': if (tab) return closeTab(tab.id); return;
     case 'reopenTab': return reopenClosedTab();
     case 'nextTab': return cycleTab(1);
     case 'prevTab': return cycleTab(-1);
     case 'focusAddress': omnibox.focus(); omnibox.select(); return;
+    case 'focusSearch': omnibox.value = '? '; omnibox.focus(); omnibox.setSelectionRange(2, 2); return;
+    case 'focusNext': return cycleBrowserFocus(1);
+    case 'focusPrevious': return cycleBrowserFocus(-1);
+    case 'focusToolbar': return $('#toolbar button:not(:disabled)')?.focus();
+    case 'focusMenu': return $('#btn-menu').focus();
+    case 'focusPage': return focusPage();
+    case 'focusDialog': {
+      const overlay = ['#guide-overlay', '#settings-overlay', '#app-menu'].map($).find((item) => !item.classList.contains('hidden'));
+      return [...(overlay?.querySelectorAll('input, button, textarea, select') || [])].find((item) => !item.disabled && item.getClientRects().length)?.focus();
+    }
+    case 'moveTabLeft': return moveCurrentTab(-1);
+    case 'moveTabRight': return moveCurrentTab(1);
+    case 'openFile': {
+      const result = await window.api.page.open();
+      if (result.ok && result.url) return createTab({ url: result.url });
+      if (!result.ok) toast(result.error, 'err');
+      return;
+    }
+    case 'focusBookmarks':
+      bookmarkBarVisible = true; renderBookmarkBar();
+      return $('#bookmarks-bar button')?.focus();
+    case 'menu': return openAppMenu();
+    case 'bookmark': sessionLibrary.bookmark(tab?.url, tab?.title); renderBookmarkBar(); return openSettings('bookmarks');
+    case 'bookmarkAll':
+      for (const item of state.tabs) sessionLibrary.bookmark(item.url, item.title);
+      renderBookmarkBar(); return openSettings('bookmarks');
+    case 'bookmarkManager': return openSettings('bookmarks');
+    case 'bookmarkBar': bookmarkBarVisible = !bookmarkBarVisible; return renderBookmarkBar();
+    case 'history': return openSettings('history');
+    case 'downloads': return openSettings('downloads');
+    case 'tasks': return openSettings('tasks');
+    case 'clearData': return openSettings('privacy');
+    case 'searchTabs': return openSettings('tabs');
+    case 'viewSource':
+      if (tab && /^https?:\/\//i.test(tab.url)) return createTab({ url: 'view-source:' + tab.url });
+      return;
+    case 'inspectPage':
+      if (tab) { try { tab.wv.inspectElement(0, 0); } catch {} }
+      return;
     case 'reload': if (tab) { try { tab.wv.reload(); } catch {} } return;
     case 'hardReload': return hardReload();
     case 'back': if (tab) { try { tab.wv.goBack(); } catch {} } return;
     case 'forward': if (tab) { try { tab.wv.goForward(); } catch {} } return;
     case 'home': return navigate(newTabUrl());
     case 'find': return openFind();
+    case 'findSelection': {
+      if (!tab) return;
+      const text = await tab.wv.executeJavaScript(`(() => {
+        const el = document.activeElement;
+        return (typeof el?.selectionStart === 'number' ? el.value.slice(el.selectionStart, el.selectionEnd) : String(window.getSelection())).slice(0, 4096);
+      })()`);
+      openFind();
+      if (text) { $('#page-find-input').value = text; findInPage(true, false); }
+      return;
+    }
     case 'findNext': return findInPage(true);
     case 'findPrevious': return findInPage(false);
     case 'print':
+    case 'printSystem':
     case 'savePage': {
       if (!tab?.wcId) return;
-      const result = await window.api.page[name === 'print' ? 'print' : 'save'](tab.wcId);
+      const result = await window.api.page[name === 'savePage' ? 'save' : 'print'](tab.wcId);
       if (!result.ok) toast(result.error, 'err');
       return;
     }
@@ -2001,6 +2080,16 @@ function cycleTab(delta) {
   activate(state.tabs[next].id);
 }
 
+function moveCurrentTab(delta) {
+  const tab = activeTab();
+  const from = state.tabs.indexOf(tab);
+  const to = Math.max(0, Math.min(state.tabs.length - 1, from + delta));
+  if (from < 0 || from === to) return;
+  state.tabs.splice(from, 1); state.tabs.splice(to, 0, tab);
+  state.tabs.forEach((item) => tabstrip.appendChild(item.el));
+  tab.el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
 async function toggleInterceptor() {
   const res = await window.api.intercept.set(!ix.enabled);
   if (res && res.ok) {
@@ -2016,10 +2105,10 @@ async function toggleInterceptor() {
 document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented) return;
   if (e.isComposing) return;
-  const name = BrowserShortcuts.resolve(e, shortcuts());
+  const name = BrowserShortcuts.resolve(e, shortcuts(), state.info?.platform);
   if (!name) return;
   e.preventDefault();
-  if (e.repeat && ['newTab', 'reopenTab', 'print', 'savePage', 'fullscreen', 'devtools', 'closeWindow', 'quit'].includes(name)) return;
+  if (e.repeat && ['newTab', 'newWindow', 'newPrivateWindow', 'reopenTab', 'print', 'printSystem', 'savePage', 'fullscreen', 'devtools', 'closeWindow', 'quit'].includes(name)) return;
   runShortcut(name);
 });
 
@@ -2140,7 +2229,21 @@ function openAppMenu() {
   menu.style.top = Math.max(8, top) + 'px';
   const version = $('#am-version');
   if (version && state.info) version.textContent = 'v' + state.info.version;
+  menu.querySelector('button:not(:disabled)')?.focus();
 }
+
+$('#app-menu').addEventListener('keydown', (event) => {
+  const buttons = [...$('#app-menu').querySelectorAll('button:not(:disabled)')];
+  if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault(); event.stopPropagation();
+    const index = buttons.indexOf(document.activeElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+      : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+  }
+  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeAppMenu(); $('#app-menu-btn').focus(); }
+  if (event.key.toLowerCase() === 'x' && !(event.ctrlKey || event.metaKey || event.altKey)) { event.preventDefault(); window.api.app.quit(); }
+});
 
 function closeAppMenu() {
   $('#app-menu')?.classList.add('hidden');
@@ -2302,6 +2405,71 @@ function openSettings(section) {
   renderSection(state.section);
 }
 
+function cycleBrowserFocus(delta) {
+  const targets = [omnibox, $('#newtab-btn'), $('#btn-menu'), activeTab()?.wv].filter(Boolean);
+  const current = targets.indexOf(document.activeElement);
+  const next = targets[(current + delta + targets.length) % targets.length];
+  next?.focus();
+}
+
+function renderBookmarkBar() {
+  const bar = $('#bookmarks-bar');
+  bar.classList.toggle('hidden', !bookmarkBarVisible);
+  bar.innerHTML = sessionLibrary.bookmarks.map((item) => `<button class="btn sm" data-bookmark="${esc(item.id)}" title="${esc(item.url)}">${esc(item.title)}</button>`).join('');
+  bar.querySelectorAll('[data-bookmark]').forEach((button) => button.addEventListener('click', (event) => {
+    const item = sessionLibrary.bookmarks.find((entry) => entry.id === button.dataset.bookmark);
+    if (item) event.ctrlKey || event.metaKey ? createTab({ url: item.url, activate: false }) : navigate(item.url);
+  }));
+}
+
+async function renderLibrary(section) {
+  const body = $('#settings-body');
+  const heading = `<div class="card"><h3>${esc(t('library.' + section))}</h3><p class="hint">${esc(t('library.ephemeral'))}</p>`;
+  if (section === 'privacy') {
+    body.innerHTML = `${heading}<p>${esc(t('library.clearHint'))}</p><button class="btn primary" id="clear-session-data">${esc(t('library.clear'))}</button><p id="clear-session-status" role="status"></p></div>`;
+    $('#clear-session-data').addEventListener('click', async (event) => {
+      event.currentTarget.disabled = true;
+      const result = await window.api.library.clear();
+      if (result.ok) sessionLibrary.clearHistory();
+      const status = $('#clear-session-status');
+      if (status) status.textContent = result.ok ? t('library.cleared') : result.error;
+    });
+    return;
+  }
+  if (section === 'downloads' || section === 'tasks') {
+    const result = await window.api.library[section === 'downloads' ? 'downloads' : 'tasks']();
+    if (state.section !== section) return;
+    if (!result.ok) { body.innerHTML = `${heading}<p>${esc(result.error)}</p></div>`; return; }
+    body.innerHTML = heading + (section === 'downloads'
+      ? result.items.map((item) => `<article class="library-row"><b>${esc(item.name)}</b><span>${esc(item.state)} · ${item.received} / ${item.total} B</span><div class="btn-row">${(item.state === 'completed' ? ['save', 'show'] : item.state === 'progressing' ? [item.paused ? 'resume' : 'pause', 'cancel'] : []).map((action) => `<button class="btn sm" data-download="${esc(item.id)}" data-action="${action}">${esc(t('library.' + action))}</button>`).join('')}</div></article>`).join('')
+      : `<table class="library-table"><thead><tr><th>PID</th><th>${esc(t('library.process'))}</th><th>CPU %</th><th>MiB</th></tr></thead><tbody>${result.items.map((item) => `<tr><td>${item.pid}</td><td>${esc(item.type)}</td><td>${item.cpu.toFixed(1)}</td><td>${item.memoryMB.toFixed(1)}</td></tr>`).join('')}</tbody></table>`) + `<button class="btn" id="library-refresh">${esc(t('library.refresh'))}</button></div>`;
+    $('#library-refresh').addEventListener('click', () => renderLibrary(section));
+    body.querySelectorAll('[data-download]').forEach((button) => button.addEventListener('click', async () => {
+      const response = await window.api.library.download(button.dataset.download, button.dataset.action);
+      if (!response.ok) toast(response.error, 'err');
+      if (state.section === section) renderLibrary(section);
+    }));
+    return;
+  }
+  const items = section === 'tabs' ? state.tabs.map((tab) => ({ id: tab.id, url: tab.url, title: tab.title }))
+    : section === 'bookmarks' ? sessionLibrary.bookmarks : sessionLibrary.history;
+  body.innerHTML = `${heading}<input id="library-filter" type="search" aria-label="${esc(t('library.search'))}" placeholder="${esc(t('library.search'))}" /><div id="library-results"></div></div>`;
+  const render = () => {
+    const query = $('#library-filter').value.toLowerCase();
+    $('#library-results').innerHTML = items.filter((item) => (item.title + ' ' + item.url).toLowerCase().includes(query)).map((item) => `<article class="library-row"><button class="btn ghost library-open" data-entry="${esc(item.id)}">${esc(item.title || item.url)}</button><span dir="ltr">${esc(item.url)}</span>${section === 'bookmarks' ? `<button class="btn sm" data-remove-bookmark="${esc(item.id)}">${esc(t('library.remove'))}</button>` : ''}</article>`).join('');
+    body.querySelectorAll('[data-entry]').forEach((button) => button.addEventListener('click', () => {
+      const item = items.find((entry) => entry.id === button.dataset.entry);
+      closeSettings();
+      if (section === 'tabs') activate(item.id); else createTab({ url: item.url });
+    }));
+    body.querySelectorAll('[data-remove-bookmark]').forEach((button) => button.addEventListener('click', () => {
+      sessionLibrary.removeBookmark(button.dataset.removeBookmark); renderBookmarkBar(); renderLibrary(section);
+    }));
+  };
+  $('#library-filter').addEventListener('input', render); render();
+  $('#library-filter').focus();
+}
+
 function closeSettings() {
   $('#settings-overlay').classList.add('hidden');
 }
@@ -2339,6 +2507,7 @@ const CHECK_LINKS = [
 function renderSection(section) {
   const body = $('#settings-body');
   const S = state.settings || {};
+  if (['bookmarks', 'history', 'downloads', 'tasks', 'privacy', 'tabs'].includes(section)) { renderLibrary(section); return; }
   if (section === 'research') { renderResearch(); return; }
 
   if (section === 'whatsnew') {
@@ -3258,6 +3427,11 @@ window.api.on('fathi:shortcut', ({ name, wcId }) => {
   runShortcut(name);
 });
 window.api.on('fathi:focus-omnibox', () => { omnibox.focus(); omnibox.select(); });
+let downloadRefresh = null;
+window.api.on('fathi:downloads:changed', () => {
+  if (downloadRefresh || state.section !== 'downloads' || $('#settings-overlay').classList.contains('hidden')) return;
+  downloadRefresh = setTimeout(() => { downloadRefresh = null; if (state.section === 'downloads') renderLibrary('downloads'); }, 150);
+});
 window.api.on('fathi:new-tab', () => createTab());
 window.api.on('fathi:close-tab', ({ wcId }) => {
   const tab = tabByWcId(wcId);

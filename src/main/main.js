@@ -43,7 +43,7 @@ for (const d of [TMP_SESSION, DOWNLOAD_DIR]) {
 }
 // Chromium's cache / cookies / GPUCache all go here and are wiped on quit.
 app.setPath('sessionData', TMP_SESSION);
-if (process.argv.includes('--fathi-e2e')) {
+if (process.argv.includes('--fathi-e2e') || process.argv.includes('--fathi-window-audit')) {
   const testConfig = path.join(TMP_SESSION, 'test-config');
   fs.mkdirSync(testConfig, { recursive: true });
   app.setPath('userData', testConfig);
@@ -66,6 +66,11 @@ const researchScope = require('./research-scope');
 const identityRuntime = require('./identity-runtime');
 const browserShortcuts = require('../shared/shortcuts');
 const systemInfo = require('./system-info');
+const windowLauncher = require('./window-launcher');
+const downloads = new (require('./downloads').Store)(() => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('fathi:downloads:changed');
+});
+const auditWindows = windowLauncher.auditWindows;
 
 /* ----------------------------------------------------------------- state */
 
@@ -94,7 +99,7 @@ async function ensureSession(partition, fp) {
 
   proxyMgr.assign(partition);
   protocolPages.bind(ses);
-  configureSession(ses, fp, partition, { downloadDir: DOWNLOAD_DIR, proxy: false });
+  configureSession(ses, fp, partition, { downloadDir: DOWNLOAD_DIR, proxy: false, onDownload: (item) => downloads.track(item, DOWNLOAD_DIR) });
   partitions.set(partition, { ses, fp });
   // A guest must not navigate before its proxy is configured.
   await proxyMgr.applyTo(ses, partition);
@@ -279,10 +284,10 @@ app.on('web-contents-created', (_event, wc) => {
 
   wc.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return;
-    const name = browserShortcuts.resolve(input, settings.get().shortcuts);
+    const name = browserShortcuts.resolve(input, settings.get().shortcuts, process.platform);
     if (!name || !mainWindow) return;
     if (name !== 'stop') event.preventDefault();
-    if (input.isAutoRepeat && ['newTab', 'reopenTab', 'print', 'savePage', 'fullscreen', 'devtools', 'closeWindow', 'quit'].includes(name)) return;
+    if (input.isAutoRepeat && ['newTab', 'newWindow', 'newPrivateWindow', 'reopenTab', 'print', 'printSystem', 'savePage', 'fullscreen', 'devtools', 'closeWindow', 'quit'].includes(name)) return;
     mainWindow.webContents.send('fathi:shortcut', { name, wcId: wc.id });
   });
 
@@ -346,6 +351,58 @@ ipcMain.handle('fathi:app:info', () => ok({
 }));
 
 ipcMain.handle('fathi:win:minimize', () => { if (mainWindow) mainWindow.minimize(); return ok({}); });
+ipcMain.handle('fathi:window:new', async (event, options = {}) => {
+  try {
+    if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may open a window');
+    const auditPath = process.argv.includes('--fathi-e2e')
+      ? path.join(TMP_SESSION, `window-${require('node:crypto').randomUUID()}.json`) : undefined;
+    const child = windowLauncher.launch(app, { auditPath });
+    await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
+    if (auditPath) auditWindows.set(child.pid, { child, auditPath });
+    return ok({ pid: child.pid, ...(auditPath ? { auditPath } : {}) });
+  } catch (e) { return fail(e); }
+});
+ipcMain.handle('fathi:window:close-audit', async (event, pid) => {
+  if (event.sender !== mainWindow?.webContents || !process.argv.includes('--fathi-e2e')) return fail('Test-only action');
+  const record = auditWindows.get(pid);
+  if (!record) return fail('Unknown test window');
+  const { child } = record;
+  if (child.exitCode === null && child.signalCode === null) await new Promise((resolve) => { child.once('exit', resolve); child.kill(); });
+  auditWindows.delete(pid);
+  for (const directory of [path.join(os.tmpdir(), `fathi-session-${pid}`), path.join(os.tmpdir(), `fathi-downloads-${pid}`)]) {
+    try { fs.rmSync(directory, { recursive: true, force: true }); } catch {}
+  }
+  return ok({});
+});
+ipcMain.handle('fathi:downloads:list', (event) => event.sender === mainWindow?.webContents ? ok({ items: downloads.list() }) : fail('Only browser chrome may read downloads'));
+ipcMain.handle('fathi:downloads:action', async (event, { id, action } = {}) => {
+  try {
+    if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may manage downloads');
+    if (['pause', 'resume', 'cancel'].includes(action)) { downloads.control(id, action); return ok({}); }
+    const record = downloads.get(id);
+    if (record.state !== 'completed' || !fs.existsSync(record.file)) return fail('Download is not available');
+    if (action === 'show') { shell.showItemInFolder(record.file); return ok({}); }
+    if (action !== 'save') return fail('Unsupported download action');
+    const result = await dialog.showSaveDialog(mainWindow, { defaultPath: record.name });
+    if (!result.canceled && result.filePath) await fs.promises.copyFile(record.file, result.filePath);
+    return ok({ canceled: result.canceled });
+  } catch (e) { return fail(e); }
+});
+ipcMain.handle('fathi:tasks:list', (event) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may read tasks');
+  return ok({ items: app.getAppMetrics().map((item) => ({ pid: item.pid, type: item.type,
+    cpu: Number(item.cpu?.percentCPUUsage || 0), memoryMB: Number(item.memory?.workingSetSize || 0) / 1024 })) });
+});
+ipcMain.handle('fathi:privacy:clear', async (event) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may clear session data');
+  try {
+    await Promise.all([...partitions.values()].map(async ({ ses }) => {
+      await ses.closeAllConnections(); await ses.clearAuthCache();
+      await ses.clearStorageData(); await ses.clearCache(); await ses.clearHostResolverCache();
+    }));
+    return ok({});
+  } catch (e) { return fail(e); }
+});
 ipcMain.handle('fathi:win:toggle-maximize', () => {
   if (!mainWindow) return ok({});
   mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
@@ -367,6 +424,13 @@ ipcMain.handle('fathi:page:print', async (event, wcId) => {
   try {
     const wc = ownedPage(event, wcId);
     return await new Promise((resolve) => wc.print({}, (success, reason) => resolve(success ? ok({}) : fail(reason || 'Printing cancelled'))));
+  } catch (e) { return fail(e); }
+});
+ipcMain.handle('fathi:page:open', async (event) => {
+  try {
+    if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may open local files');
+    const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'] });
+    return ok({ url: result.canceled || !result.filePaths[0] ? null : pathToFileURL(result.filePaths[0]).href });
   } catch (e) { return fail(e); }
 });
 ipcMain.handle('fathi:page:save', async (event, wcId) => {
@@ -885,6 +949,17 @@ app.whenReady().then(async () => {
   } catch {}
 
   createWindow();
+  if (process.argv.includes('--fathi-window-audit') && process.env.FATHI_WINDOW_AUDIT_PATH) {
+    mainWindow.webContents.once('did-finish-load', async () => {
+      try {
+        for (let i = 0; i < 150; i++) {
+          const state = await mainWindow.webContents.executeJavaScript(`typeof state !== 'undefined' && state.tabs.length === 1 && activeTab().identityReady && !activeTab().loading && ({ partition: activeTab().partition, focus: document.activeElement.id })`);
+          if (state) { fs.writeFileSync(process.env.FATHI_WINDOW_AUDIT_PATH, JSON.stringify(state)); break; }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } catch {}
+    });
+  }
   intercept.init(mainWindow);
   updater.init(mainWindow);
   network.init(mainWindow, {

@@ -43,4 +43,19 @@ test('Command aliases and both plus-key forms work without claiming Ctrl+Alt is 
   assert.equal(shortcuts.resolve({ key: '+', ctrlKey: true, shiftKey: true }), 'zoomIn');
   assert.equal(shortcuts.resolve({ key: '=', control: true }), 'zoomIn');
   assert.equal(shortcuts.resolve({ key: 't', control: true, alt: true }), null);
+  assert.equal(shortcuts.resolve({ key: 'F', control: true, meta: true }), 'fullscreen');
+  assert.equal(shortcuts.resolve({ key: 'ص', code: 'KeyW', control: true }), 'closeTab');
+  assert.equal(shortcuts.resolve({ key: 'i', control: true, alt: true, modifiers: ['altGr'] }), null);
+});
+test('macOS aliases do not turn native hide/minimize into history commands', () => {
+  assert.equal(shortcuts.resolve({ key: 'h', meta: true }, shortcuts.defaults, 'darwin'), null);
+  assert.equal(shortcuts.resolve({ key: 'm', meta: true }, shortcuts.defaults, 'darwin'), null);
+  assert.equal(shortcuts.resolve({ key: 'y', meta: true }, shortcuts.defaults, 'darwin'), 'history');
+  assert.equal(shortcuts.resolve({ key: 'j', meta: true, shift: true }, shortcuts.defaults, 'darwin'), 'downloads');
+  assert.equal(shortcuts.resolve({ key: 'i', meta: true, alt: true }, shortcuts.defaults, 'darwin'), 'devtools');
+  assert.equal(shortcuts.resolve({ key: 'i', control: true, alt: true }, shortcuts.defaults, 'darwin'), 'toggleInterceptor');
+  assert.equal(shortcuts.resolve({ key: 'ArrowLeft', alt: true }, shortcuts.defaults, 'darwin'), null);
+  assert.equal(shortcuts.resolve({ key: 'ArrowLeft', meta: true }, shortcuts.defaults, 'darwin'), 'back');
+  assert.equal(shortcuts.resolve({ key: 'e', meta: true }, shortcuts.defaults, 'darwin'), 'findSelection');
+  assert.equal(shortcuts.resolve({ key: 'y', meta: true }, { ...shortcuts.defaults, history: '' }, 'darwin'), null);
 });

@@ -10,6 +10,7 @@ const EVENTS = new Set([
   'fathi:new-tab',
   'fathi:close-tab',
   'fathi:shortcut',
+  'fathi:downloads:changed',
   'fathi:win:state',
   'fathi:proxy:changed',
   'fathi:tor:changed',
@@ -31,6 +32,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   win: {
+    new: (options = {}) => ipcRenderer.invoke('fathi:window:new', options),
     minimize: () => ipcRenderer.invoke('fathi:win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('fathi:win:toggle-maximize'),
     toggleFullscreen: () => ipcRenderer.invoke('fathi:win:toggle-fullscreen'),
@@ -43,8 +45,16 @@ contextBridge.exposeInMainWorld('api', {
     quit: () => ipcRenderer.invoke('fathi:app:quit')
   },
   page: {
+    open: () => ipcRenderer.invoke('fathi:page:open'),
     print: (wcId) => ipcRenderer.invoke('fathi:page:print', wcId),
     save: (wcId) => ipcRenderer.invoke('fathi:page:save', wcId)
+  },
+  library: {
+    downloads: () => ipcRenderer.invoke('fathi:downloads:list'),
+    download: (id, action) => ipcRenderer.invoke('fathi:downloads:action', { id, action }),
+    tasks: () => ipcRenderer.invoke('fathi:tasks:list'),
+    clear: () => ipcRenderer.invoke('fathi:privacy:clear'),
+    closeAuditWindow: (pid) => ipcRenderer.invoke('fathi:window:close-audit', pid)
   },
 
   fp: {
