@@ -9,6 +9,7 @@ const EVENTS = new Set([
   'fathi:focus-omnibox',
   'fathi:new-tab',
   'fathi:close-tab',
+  'fathi:shortcut',
   'fathi:win:state',
   'fathi:proxy:changed',
   'fathi:tor:changed',
@@ -32,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   win: {
     minimize: () => ipcRenderer.invoke('fathi:win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('fathi:win:toggle-maximize'),
+    toggleFullscreen: () => ipcRenderer.invoke('fathi:win:toggle-fullscreen'),
     close: () => ipcRenderer.invoke('fathi:win:close'),
     hide: () => ipcRenderer.invoke('fathi:win:hide'),
     state: () => ipcRenderer.invoke('fathi:win:state')
@@ -39,6 +41,10 @@ contextBridge.exposeInMainWorld('api', {
 
   app: {
     quit: () => ipcRenderer.invoke('fathi:app:quit')
+  },
+  page: {
+    print: (wcId) => ipcRenderer.invoke('fathi:page:print', wcId),
+    save: (wcId) => ipcRenderer.invoke('fathi:page:save', wcId)
   },
 
   fp: {
