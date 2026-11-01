@@ -11,6 +11,7 @@ const DEFAULT_PROXY = process.env.FATHI_PROXY || '';
 
 const DEFAULTS = {
   version: 2,
+  shortcutProfileVersion: 2,
   language: 'en',              // 'en' | 'ar'
   theme: 'dark',               // 'light' | 'dark'
   searchEngine: 'duckduckgo',
@@ -98,12 +99,25 @@ function load() {
     raw = {};
   }
   current = merge(DEFAULTS, raw);
+  let changed = false;
   // v1 configs shipped a light theme; v2 is black by default.
   if (!raw.version || raw.version < 2) {
     current.theme = 'dark';
     current.version = 2;
-    try { save(current); } catch (e) {}
+    changed = true;
   }
+  if ((raw.shortcutProfileVersion || 0) < 2) {
+    const previous = isObject(raw.shortcuts) ? raw.shortcuts : {};
+    const legacy = { fingerprint: 'Ctrl+D', toggleDevice: 'Ctrl+Shift+M', toggleProxy: 'Ctrl+Shift+P', toggleInterceptor: 'Ctrl+Shift+I' };
+    for (const [name, value] of Object.entries(legacy)) {
+      const target = DEFAULTS.shortcuts[name];
+      const claimed = Object.entries(previous).some(([other, binding]) => other !== name && binding === target);
+      if (previous[name] === value && !claimed) current.shortcuts[name] = target;
+    }
+    current.shortcutProfileVersion = 2;
+    changed = true;
+  }
+  if (changed) { try { save(current); } catch {} }
   return current;
 }
 
