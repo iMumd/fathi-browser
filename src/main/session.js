@@ -123,9 +123,10 @@ function configureSession(ses, fp, partition, opts = {}) {
     try {
       ses.on('will-download', (event, item) => {
         try {
+          if (opts.onDownload) { opts.onDownload(item); return; }
           const name = item.getFilename() || `file-${Date.now()}`;
-          item.setSavePath(path.join(downloadDir, name));
-        } catch {}
+          item.setSavePath(path.join(downloadDir, path.basename(name)));
+        } catch { try { item.cancel(); } catch {} }
       });
     } catch {}
   }
