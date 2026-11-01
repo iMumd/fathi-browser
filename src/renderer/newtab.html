@@ -582,7 +582,7 @@
         if (api.navigate) api.navigate(target);
         $('#q').value = '';
       });
-      setTimeout(() => { const q = $('#q'); if (q) q.focus(); }, 120);
+      // Browser chrome owns initial focus; do not steal it from the address bar.
 
       /* -------------------------- wallpaper ------------------------- */
       async function loadWallpaper() {

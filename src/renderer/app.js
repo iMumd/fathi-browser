@@ -32,6 +32,7 @@ const state = {
 };
 
 let seq = 0;
+const closedTabs = []; // URL/device only, bounded and never persisted.
 
 /* ------------------------------------------------------------------ utils */
 
@@ -248,7 +249,11 @@ function makeTabElement(tab) {
   el.title = t('tab.fp');
 
   el.addEventListener('mousedown', (e) => {
-    if (e.button === 0) activate(tab.id);
+    if (e.button === 0 && !e.target.closest('.tab-close')) activate(tab.id);
+    if (e.button === 1) e.preventDefault();
+  });
+  el.addEventListener('auxclick', (e) => {
+    if (e.button === 1) { e.preventDefault(); closeTab(tab.id); }
   });
   el.querySelector('.tab-close').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -295,6 +300,7 @@ async function createTab(opts = {}) {
     wv,
     startUrl,
     identityReady: false,
+    focusAddressOnReady: !opts.url && opts.activate !== false,
     url: opts.url || startUrl,
     title: t('tab.new'),
     favicon: null,
@@ -310,7 +316,7 @@ async function createTab(opts = {}) {
   tabstrip.insertBefore(tab.el, ref);
 
   wireWebview(tab);
-  activate(id);
+  if (opts.activate !== false || !state.activeId) activate(id, { focus: false });
 
   // Safety net: if the guest was created but no navigation started (rare
   // first-attach race), kick it once more.
@@ -321,7 +327,8 @@ async function createTab(opts = {}) {
   }, 1200);
 
   if (opts.activate !== false) {
-    setTimeout(() => { try { wv.focus(); } catch {} }, 80);
+    if (!opts.url) { omnibox.focus(); omnibox.select(); }
+    else if (state.activeId === id) focusPage(tab);
   }
   refreshFingerprintList();
   return tab;
@@ -351,8 +358,10 @@ function wireWebview(tab) {
   wv.addEventListener('did-start-loading', () => {
     tab.loading = true;
     el.classList.add('loading');
-    $('#progress').classList.add('active');
-    $('#bar').style.width = '18%';
+    if (state.activeId === tab.id) {
+      $('#progress').classList.add('active');
+      $('#bar').style.width = '18%';
+    }
     if (state.activeId === tab.id) updateNavButtons();
   });
 
@@ -361,8 +370,9 @@ function wireWebview(tab) {
     el.classList.remove('loading');
     wv.classList.add('ready');
     const bar = $('#bar');
-    bar.style.width = '100%';
+    if (state.activeId === tab.id) bar.style.width = '100%';
     setTimeout(() => {
+      if (state.activeId !== tab.id || tab.loading) return;
       $('#progress').classList.remove('active');
       bar.style.width = '0%';
     }, 240);
@@ -418,7 +428,6 @@ function wireWebview(tab) {
   });
 
   wv.addEventListener('dom-ready', async () => {
-    try { wv.setZoomFactor(1); } catch {}
     try { tab.wcId = wv.getWebContentsId(); } catch {}
     if (!tab.identityReady) {
       const initialized = await window.api.tab.ready(tab.wcId);
@@ -429,7 +438,15 @@ function wireWebview(tab) {
     }
     wv.classList.add('ready');
     if (state.activeId === tab.id) applyTabLayout(tab);
+    if (tab.focusAddressOnReady) {
+      tab.focusAddressOnReady = false;
+      if (state.activeId === tab.id && [document.body, wv].includes(document.activeElement)) omnibox.focus();
+    }
     updateNavButtons();
+  });
+  wv.addEventListener('found-in-page', (e) => {
+    if (state.activeId !== tab.id || findState.tabId !== tab.id || e.result.requestId !== findState.requestId) return;
+    $('#page-find-count').textContent = `${e.result.activeMatchOrdinal} / ${e.result.matches}`;
   });
 
   wv.addEventListener('console-message', () => { /* silence */ });
@@ -478,15 +495,23 @@ function applyTabLayout(tab) {
   if (tab.wcId) window.api.device.emulate(tab.wcId, { width: view.clientWidth, height: view.clientHeight });
 }
 
-function activate(id) {
+function focusPage(tab = activeTab()) {
+  if (!tab || !$('#settings-overlay').classList.contains('hidden') || !$('#guide-overlay').classList.contains('hidden')) return;
+  try { tab.wv.focus(); } catch {}
+}
+
+function activate(id, { focus = true } = {}) {
   const tab = state.tabs.find((x) => x.id === id);
   if (!tab) return;
+  if (state.activeId !== id) closeFind(false);
+  omnibox.blur();
   state.activeId = id;
 
   for (const other of state.tabs) {
     const on = other.id === id;
     other.el.classList.toggle('active', on);
     other.el.setAttribute('aria-selected', on ? 'true' : 'false');
+    other.el.tabIndex = on ? 0 : -1;
     other.wv.classList.toggle('active', on);
   }
 
@@ -499,30 +524,46 @@ function activate(id) {
   refreshFingerprintList();
   devOnTabChange();
   highlightActiveTabInSettings();
+  tab.el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+  $('#progress').classList.toggle('active', !!tab.loading);
+  if (focus) focusPage(tab);
 }
 
 async function closeTab(id, opts = {}) {
   const idx = state.tabs.findIndex((tab) => tab.id === id);
   if (idx === -1) return;
   const tab = state.tabs[idx];
+  if (!opts.silent) {
+    closedTabs.push({ url: tab.url || tab.startUrl, index: idx,
+      deviceId: tab.fp?.device?.id || 'desktop', landscape: tab.fp?.device?.orientation === 'landscape' });
+    if (closedTabs.length > 10) closedTabs.shift();
+  }
+  if (findState.tabId === id) closeFind(false);
+  // Remove and select synchronously; session teardown must not block input or
+  // leave a stale index behind when several close gestures arrive quickly.
+  state.tabs.splice(idx, 1);
 
   try { tab.wv.remove(); } catch {}
   clearResearchForTab(tab.wcId);
   if (flow.detail?.wcId === tab.wcId) flowBack();
   try { tab.el.remove(); } catch {}
-  await window.api.tab.destroy(tab.partition);
-
-  state.tabs.splice(idx, 1);
-
   if (!state.tabs.length) {
+    state.activeId = null;
     if (!opts.silent) await createTab();
-    return;
-  }
-  if (state.activeId === id) {
+  } else if (state.activeId === id) {
     const next = state.tabs[Math.min(idx, state.tabs.length - 1)];
     activate(next.id);
   }
   refreshFingerprintList();
+  await window.api.tab.destroy(tab.partition);
+}
+
+async function reopenClosedTab() {
+  const entry = closedTabs.pop();
+  if (!entry) return;
+  const restored = await createTab({ ...entry, index: Math.min(entry.index, state.tabs.length) });
+  if (!restored) closedTabs.push(entry);
+  return restored;
 }
 
 async function rotateTab(id) {
@@ -560,6 +601,7 @@ function navigate(url) {
   if (!tab.identityReady) { tab.startUrl = target; omnibox.blur(); return; }
   try { tab.wv.loadURL(target); } catch { tab.wv.setAttribute('src', target); }
   omnibox.blur();
+  focusPage(tab);
 }
 
 /* -------------------------------------------------------------- toolbar UI */
@@ -1834,61 +1876,21 @@ document.addEventListener('keydown', (e) => {
  * Keyboard shortcuts
  * ==================================================================== */
 
-const SHORTCUT_DEFS = [
-  ['newTab', 'sc.newTab'],
-  ['closeTab', 'sc.closeTab'],
-  ['reopenTab', 'sc.reopenTab'],
-  ['nextTab', 'sc.nextTab'],
-  ['prevTab', 'sc.prevTab'],
-  ['focusAddress', 'sc.focusAddress'],
-  ['reload', 'sc.reload'],
-  ['hardReload', 'sc.hardReload'],
-  ['back', 'sc.back'],
-  ['forward', 'sc.forward'],
-  ['toggleDevice', 'sc.toggleDevice'],
-  ['toggleProxy', 'sc.toggleProxy'],
-  ['toggleInterceptor', 'sc.toggleInterceptor'],
-  ['openGuide', 'sc.openGuide'],
-  ['settings', 'sc.settings'],
-  ['fingerprint', 'sc.fingerprint'],
-  ['zoomIn', 'sc.zoomIn'],
-  ['zoomOut', 'sc.zoomOut'],
-  ['zoomReset', 'sc.zoomReset'],
-  ['quit', 'sc.quit']
-];
+const SHORTCUT_DEFS = Object.keys(BrowserShortcuts.defaults).map((name) => [name, 'sc.' + name]);
 
 /** Build the canonical "Ctrl+Shift+K" form from a keyboard event. */
 function comboFromEvent(e) {
-  const parts = [];
-  if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
-  if (e.altKey) parts.push('Alt');
-  if (e.shiftKey) parts.push('Shift');
-  let key = e.key;
-  if (key === ' ' ) key = 'Space';
-  else if (key === '+') key = '=';
-  else if (key.length === 1) key = key.toUpperCase();
-  else if (key === 'Escape' || key === 'Enter' || key === 'Tab' || key === 'Backspace') key = '';
-  else if (/^Arrow/.test(key)) key = key.slice(5);
-  else if (/^(Control|Meta|Alt|Shift)$/.test(key)) return '';
-  if (!key) return '';
-  parts.push(key);
-  return parts.join('+');
+  return BrowserShortcuts.combo(e);
 }
 
 function shortcuts() {
   return (state.settings && state.settings.shortcuts) || {};
 }
 
-function matchCombo(e, name) {
-  const want = shortcuts()[name];
-  if (!want) return false;
-  return comboFromEvent(e) === want;
-}
-
-function shortcutOwner(combo, except) {
+function shortcutOwner(combo, except, bindings = shortcuts()) {
   for (const [name, key] of SHORTCUT_DEFS) {
     if (name === except) continue;
-    if (shortcuts()[name] === combo) return key;
+    if (bindings[name] === combo || (bindings[name] === BrowserShortcuts.defaults[name] && BrowserShortcuts.aliases[name]?.includes(combo))) return key;
   }
   return null;
 }
@@ -1941,8 +1943,8 @@ async function runShortcut(name) {
   const tab = activeTab();
   switch (name) {
     case 'newTab': return createTab();
-    case 'closeTab': if (tab) closeTab(tab.id); return;
-    case 'reopenTab': return createTab();
+    case 'closeTab': if (tab) return closeTab(tab.id); return;
+    case 'reopenTab': return reopenClosedTab();
     case 'nextTab': return cycleTab(1);
     case 'prevTab': return cycleTab(-1);
     case 'focusAddress': omnibox.focus(); omnibox.select(); return;
@@ -1950,6 +1952,28 @@ async function runShortcut(name) {
     case 'hardReload': return hardReload();
     case 'back': if (tab) { try { tab.wv.goBack(); } catch {} } return;
     case 'forward': if (tab) { try { tab.wv.goForward(); } catch {} } return;
+    case 'home': return navigate(newTabUrl());
+    case 'find': return openFind();
+    case 'findNext': return findInPage(true);
+    case 'findPrevious': return findInPage(false);
+    case 'print':
+    case 'savePage': {
+      if (!tab?.wcId) return;
+      const result = await window.api.page[name === 'print' ? 'print' : 'save'](tab.wcId);
+      if (!result.ok) toast(result.error, 'err');
+      return;
+    }
+    case 'fullscreen': return window.api.win.toggleFullscreen();
+    case 'closeWindow': return window.api.win.close();
+    case 'devtools':
+      if (tab) { try { tab.wv.isDevToolsOpened() ? tab.wv.closeDevTools() : tab.wv.openDevTools(); } catch {} }
+      return;
+    case 'stop':
+      if (!$('#page-find').classList.contains('hidden')) return closeFind();
+      if (!$('#settings-overlay').classList.contains('hidden')) return closeSettings();
+      closeGuide(); closeAppMenu();
+      if (tab) { try { tab.wv.stop(); } catch {} }
+      return;
     case 'toggleDevice': return cycleDevice();
     case 'toggleProxy': return cycleProxy();
     case 'toggleInterceptor': return toggleInterceptor();
@@ -1960,7 +1984,13 @@ async function runShortcut(name) {
     case 'zoomOut': return zoomBy(-0.1);
     case 'zoomReset': return zoomReset();
     case 'quit': return window.api.app.quit();
-    default: return;
+    default:
+      if (/^tab[1-9]$/.test(name)) {
+        const index = Number(name.slice(3));
+        const target = state.tabs[index === 9 ? state.tabs.length - 1 : index - 1];
+        if (target) activate(target.id);
+      }
+      return;
   }
 }
 
@@ -1981,24 +2011,55 @@ async function toggleInterceptor() {
   }
 }
 
-/* Global shortcut handling. Page input wins first, so typing a shortcut inside
-   a text field never swallows the keystroke. */
-function isTypingTarget(el) {
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
-}
-
+/* Registered browser gestures work inside fields; ordinary typing/editing is
+   untouched, and recorder fields consume their own events. */
 document.addEventListener('keydown', (e) => {
-  if (isTypingTarget(e.target) && !(e.ctrlKey || e.metaKey)) return;
-  for (const [name] of SHORTCUT_DEFS) {
-    if (matchCombo(e, name)) {
-      e.preventDefault();
-      runShortcut(name);
-      return;
-    }
-  }
+  if (e.defaultPrevented) return;
+  if (e.isComposing) return;
+  const name = BrowserShortcuts.resolve(e, shortcuts());
+  if (!name) return;
+  e.preventDefault();
+  if (e.repeat && ['newTab', 'reopenTab', 'print', 'savePage', 'fullscreen', 'devtools', 'closeWindow', 'quit'].includes(name)) return;
+  runShortcut(name);
 });
+
+const findState = { tabId: null, requestId: null, query: '' };
+function openFind() {
+  $('#page-find').classList.remove('hidden');
+  $('#page-find-input').focus();
+  $('#page-find-input').select();
+}
+function findInPage(forward = true, next = true) {
+  const tab = activeTab();
+  const text = $('#page-find-input').value;
+  if (!text) { openFind(); return; }
+  findState.tabId = tab?.id;
+  try {
+    findState.requestId = tab.wv.findInPage(text, { forward, findNext: next && findState.query === text });
+    findState.query = text;
+  } catch {}
+}
+function closeFind(focus = true) {
+  const tab = state.tabs.find((item) => item.id === findState.tabId);
+  try { tab?.wv.stopFindInPage('clearSelection'); } catch {}
+  $('#page-find').classList.add('hidden');
+  $('#page-find-count').textContent = '';
+  findState.tabId = null; findState.requestId = null; findState.query = '';
+  if (focus) focusPage();
+}
+$('#page-find-input').addEventListener('input', () => {
+  if (!$('#page-find-input').value) {
+    try { activeTab()?.wv.stopFindInPage('clearSelection'); } catch {}
+    $('#page-find-count').textContent = ''; findState.query = '';
+  } else findInPage(true, false);
+});
+$('#page-find-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); findInPage(!e.shiftKey); }
+  if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+});
+$('#page-find-next').addEventListener('click', () => findInPage(true));
+$('#page-find-prev').addEventListener('click', () => findInPage(false));
+$('#page-find-close').addEventListener('click', () => closeFind());
 
 /* ======================================================================
  * Guide
@@ -2021,7 +2082,7 @@ function comboHtml(combo) {
 
 function guideHtml() {
   const sc = shortcuts();
-  const shortcutRows = SHORTCUT_DEFS.slice(0, 12).map(([name, key]) => `
+  const shortcutRows = SHORTCUT_DEFS.map(([name, key]) => `
     <div class="kbd-row"><span>${esc(t(key))}</span><span class="kbd-combo">${comboHtml(sc[name])}</span></div>`).join('');
   const steps = [
     ['guide.step1Title', 'guide.step1'],
@@ -2344,11 +2405,7 @@ function renderSection(section) {
 
       <div class="card">
         <h3>${esc(t('general.shortcuts'))}</h3>
-        <div class="kv"><span class="k">${esc(t('sc.newTab'))}</span><span class="v">Ctrl + T</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.closeTab'))}</span><span class="v">Ctrl + W</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.address'))}</span><span class="v">Ctrl + L</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.reload'))}</span><span class="v">Ctrl + R</span></div>
-        <div class="kv"><span class="k">${esc(t('sc.settings'))}</span><span class="v">Ctrl + D</span></div>
+        ${['newTab', 'closeTab', 'focusAddress', 'reload', 'settings'].map((name) => `<div class="kv"><span class="k">${esc(t('sc.' + name))}</span><span class="v">${esc(shortcuts()[name] || '—')}</span></div>`).join('')}
       </div>`;
 
     const search = $('#set-search');
@@ -2849,7 +2906,7 @@ function renderSection(section) {
             <div class="sc-row">
               <span class="sc-name">${esc(t(key))}</span>
               <input class="sc-input" type="text" readonly dir="ltr"
-                     data-sc="${esc(name)}" value="${esc(sc[name] || '')}"
+                     data-sc="${esc(name)}" aria-label="${esc(t(key))}" value="${esc(sc[name] || '')}"
                      placeholder="${esc(t('sc.recording'))}" />
             </div>`).join('')}
         </div>
@@ -2859,15 +2916,16 @@ function renderSection(section) {
         </div>
       </div>`;
 
-    let recording = null;
     $$('.sc-input').forEach((input) => {
       input.addEventListener('focus', () => { input.value = ''; });
       input.addEventListener('blur', () => {
         if (!input.value) input.value = sc[input.dataset.sc] || '';
       });
       input.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab' && !(e.ctrlKey || e.metaKey || e.altKey)) return;
         e.preventDefault();
         e.stopPropagation();
+        if (e.key === 'Escape') { input.blur(); return; }
         if (e.key === 'Backspace') {
           input.value = '';
           sc[input.dataset.sc] = '';
@@ -2875,7 +2933,7 @@ function renderSection(section) {
         }
         const combo = comboFromEvent(e);
         if (!combo) return;
-        const owner = shortcutOwner(combo, input.dataset.sc);
+        const owner = shortcutOwner(combo, input.dataset.sc, sc);
         if (owner) {
           toast(t('sc.conflict', { name: t(owner) }), 'err');
           return;
@@ -2912,7 +2970,7 @@ function renderSection(section) {
       <div class="about-intro"><span class="eyebrow">INDEPENDENT / OPEN SOURCE</span><h2>Fathi</h2>
       <p>${esc(t('about.tagline'))}</p>
       <div class="about-version-row">
-        <span class="badge accent">${esc(t('about.version', { v: info.version || '1.0.0' }))}</span>
+        <span class="badge accent">${esc(t('about.version', { v: info.version || '—' }))}</span>
         <button class="btn sm" id="about-update" type="button">${esc(t('update.check'))}</button>
         <span id="about-update-text" class="muted">${esc(updateStatusText(updateState))}</span>
       </div>
@@ -2966,7 +3024,12 @@ function renderSection(section) {
       <p class="hint">${esc(t('about.diagnosticsHint'))}</p>
       <div class="kv"><span class="k">${esc(t('about.chromium'))}</span><span class="v">${esc(info.chrome || '')}</span></div>
       <div class="kv"><span class="k">${esc(t('about.electron'))}</span><span class="v">${esc(info.electron || '')}</span></div>
-      <div class="kv"><span class="k">${esc(t('about.system'))}</span><span class="v">${esc((info.platform || '') + ' ' + (info.arch || ''))}</span></div>
+      <div class="kv"><span class="k">Node.js</span><span class="v">${esc(info.node || '—')}</span></div>
+      <div class="kv"><span class="k">${esc(t('about.system'))}</span><span class="v" id="about-system">${esc(info.system?.name || info.platform || '—')}</span></div>
+      <div class="kv"><span class="k">${esc(t('about.osVersion'))}</span><span class="v" id="about-os-version" dir="ltr">${esc(info.system ? `${info.system.version} (${info.system.release})` : '—')}</span></div>
+      <div class="kv"><span class="k">${esc(t('about.machine'))}</span><span class="v">${esc(info.system?.machine || '—')}</span></div>
+      <div class="kv"><span class="k">${esc(t('about.appArch'))}</span><span class="v">${esc(info.arch || '—')}</span></div>
+      <div class="kv"><span class="k">${esc(t('about.build'))}</span><span class="v">${esc(t(info.packaged ? 'about.packaged' : 'about.development'))}</span></div>
       <div class="btn-row"><button class="btn" id="about-diagnostics">${esc(t('about.copyDiagnostics'))}</button><button class="btn ghost" id="about-repository">${esc(t('about.repository'))}</button></div>
     </div>
 
@@ -2996,7 +3059,7 @@ function renderSection(section) {
   openLink('about-channel', 'https://t.me/Mumdthoughts');
   openLink('about-email', 'mailto:hi@mumd.dev');
   openLink('about-repository', 'https://github.com/iMumd/fathi-browser');
-  $('#about-diagnostics').addEventListener('click', () => copyText(`Fathi: ${info.version}\nElectron: ${info.electron}\nChromium: ${info.chrome}\nPlatform: ${info.platform} ${info.arch}`));
+  $('#about-diagnostics').addEventListener('click', () => copyText(`Fathi: ${info.version}\nElectron: ${info.electron}\nChromium: ${info.chrome}\nNode.js: ${info.node}\nSystem: ${info.system?.name || info.platform}\nOS version: ${info.system?.version || '—'}\nOS release: ${info.system?.release || '—'}\nSystem architecture: ${info.system?.machine || '—'}\nApplication architecture: ${info.arch}\nBuild: ${info.packaged ? 'packaged' : 'development'}`));
 
   const checkBtn = $('#about-update');
   if (checkBtn) {
@@ -3117,6 +3180,8 @@ function applyTheme() {
 
 function applyStatic() {
   window.i18n.apply();
+  $('#page-find').setAttribute('aria-label', t('find.placeholder'));
+  $('#page-find-input').setAttribute('aria-label', t('find.placeholder'));
   const brand = $('#brand');
   if (brand) brand.title = 'Fathi';
   const winMax = $('#win-max');
@@ -3162,8 +3227,10 @@ async function setTheme(theme) {
 
 /* ---------------------------------------------------------------- events */
 
-window.api.on('fathi:window:open', ({ url }) => {
-  if (url) createTab({ url });
+window.api.on('fathi:window:open', ({ url, wcId, disposition }) => {
+  const opener = tabByWcId(wcId);
+  if (url) createTab({ url, activate: disposition !== 'background-tab',
+    ...(opener ? { index: state.tabs.indexOf(opener) + 1 } : {}) });
 });
 
 window.api.on('fathi:newtab:navigate', ({ url, wcId }) => {
@@ -3185,6 +3252,11 @@ window.api.on('fathi:newtab:rotate', ({ wcId }) => {
 window.api.on('fathi:newtab:guide', () => openGuide());
 window.api.on('fathi:newtab:shortcuts', () => openSettings('shortcuts'));
 
+window.api.on('fathi:shortcut', ({ name, wcId }) => {
+  // A background guest must never steer the foreground tab.
+  if (tabByWcId(wcId)?.id !== state.activeId) return;
+  runShortcut(name);
+});
 window.api.on('fathi:focus-omnibox', () => { omnibox.focus(); omnibox.select(); });
 window.api.on('fathi:new-tab', () => createTab());
 window.api.on('fathi:close-tab', ({ wcId }) => {

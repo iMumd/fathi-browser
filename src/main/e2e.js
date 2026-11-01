@@ -153,6 +153,10 @@ async function run(win) {
     JSON.stringify(about));
 
   /* ---- 3. second tab gets a different partition */
+  if (process.argv.includes('--fathi-browser-audit')) {
+    trace('browser keyboard and About audit');
+    for (const check of await require('./browser-checks').run(ui)) add(check.name, check.pass, check.detail);
+  }
   if (process.argv.includes('--fathi-intercept-audit')) {
     trace('live interception and rule audit');
     const checks = await require('./intercept-checks').run(ui);

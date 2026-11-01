@@ -64,6 +64,8 @@ const tor = require('./tor');
 const updater = require('./updater');
 const researchScope = require('./research-scope');
 const identityRuntime = require('./identity-runtime');
+const browserShortcuts = require('../shared/shortcuts');
+const systemInfo = require('./system-info');
 
 /* ----------------------------------------------------------------- state */
 
@@ -277,24 +279,11 @@ app.on('web-contents-created', (_event, wc) => {
 
   wc.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return;
-    const ctrl = input.control || input.meta;
-    if (ctrl && input.key.toLowerCase() === 'l') {
-      event.preventDefault();
-      if (mainWindow) mainWindow.webContents.send('fathi:focus-omnibox');
-    }
-    if (ctrl && input.key.toLowerCase() === 't') {
-      event.preventDefault();
-      if (mainWindow) mainWindow.webContents.send('fathi:new-tab');
-    }
-    if (ctrl && input.key.toLowerCase() === 'w') {
-      event.preventDefault();
-      if (mainWindow) mainWindow.webContents.send('fathi:close-tab', { wcId: wc.id });
-    }
-    if (input.key === 'F12' || (ctrl && input.shift && input.key.toLowerCase() === 'i')) {
-      event.preventDefault();
-      if (wc.isDevToolsOpened()) wc.closeDevTools();
-      else wc.openDevTools({ mode: 'detach' });
-    }
+    const name = browserShortcuts.resolve(input, settings.get().shortcuts);
+    if (!name || !mainWindow) return;
+    if (name !== 'stop') event.preventDefault();
+    if (input.isAutoRepeat && ['newTab', 'reopenTab', 'print', 'savePage', 'fullscreen', 'devtools', 'closeWindow', 'quit'].includes(name)) return;
+    mainWindow.webContents.send('fathi:shortcut', { name, wcId: wc.id });
   });
 
   // Right-click: inspect element / DevTools / copy-paste, like a real browser.
@@ -352,13 +341,7 @@ function fail(error) { return { ok: false, error: String(error && error.message 
 
 /* --- app / window */
 ipcMain.handle('fathi:app:info', () => ok({
-  name: 'Fathi',
-  version: app.getVersion(),
-  electron: process.versions.electron,
-  chrome: process.versions.chrome,
-  node: process.versions.node,
-  platform: process.platform,
-  arch: process.arch,
+  ...systemInfo.collect({ app }),
   sessions: partitions.size
 }));
 
@@ -369,6 +352,32 @@ ipcMain.handle('fathi:win:toggle-maximize', () => {
   return ok({ maximized: mainWindow.isMaximized() });
 });
 ipcMain.handle('fathi:win:close', () => { if (mainWindow) mainWindow.close(); return ok({}); });
+ipcMain.handle('fathi:win:toggle-fullscreen', (event) => {
+  if (event.sender !== mainWindow?.webContents) return fail('Only browser chrome may change fullscreen');
+  mainWindow.setFullScreen(!mainWindow.isFullScreen());
+  return ok({});
+});
+function ownedPage(event, wcId) {
+  if (event.sender !== mainWindow?.webContents) throw new Error('Only browser chrome may access page actions');
+  const wc = webContents.fromId(Number(wcId));
+  if (!wc || wc.isDestroyed() || !recordForWebContents(wc)) throw new Error('The tab has closed');
+  return wc;
+}
+ipcMain.handle('fathi:page:print', async (event, wcId) => {
+  try {
+    const wc = ownedPage(event, wcId);
+    return await new Promise((resolve) => wc.print({}, (success, reason) => resolve(success ? ok({}) : fail(reason || 'Printing cancelled'))));
+  } catch (e) { return fail(e); }
+});
+ipcMain.handle('fathi:page:save', async (event, wcId) => {
+  try {
+    const wc = ownedPage(event, wcId);
+    const result = await dialog.showSaveDialog(mainWindow, { defaultPath: 'page.html', filters: [{ name: 'HTML page', extensions: ['html'] }] });
+    if (result.canceled || !result.filePath) return ok({ canceled: true });
+    await wc.savePage(result.filePath, 'HTMLComplete');
+    return ok({});
+  } catch (e) { return fail(e); }
+});
 ipcMain.handle('fathi:win:state', () => ok({
   maximized: mainWindow ? mainWindow.isMaximized() : false,
   fullscreen: mainWindow ? mainWindow.isFullScreen() : false
@@ -685,14 +694,7 @@ ipcMain.handle('fathi:net:clear', (event, { wcId, all } = {}) => {
 /* --- settings */
 ipcMain.handle('fathi:settings:get', () => ok({
   settings: settings.get(),
-  info: {
-    version: app.getVersion(),
-    packaged: app.isPackaged && !process.argv.includes('--fathi-e2e'),
-    platform: process.platform,
-    arch: process.arch,
-    chrome: process.versions.chrome,
-    electron: process.versions.electron
-  }
+  info: { ...systemInfo.collect({ app }), packaged: app.isPackaged && !process.argv.includes('--fathi-e2e') }
 }));
 
 ipcMain.handle('fathi:settings:set', (event, patch = {}) => {
@@ -905,6 +907,11 @@ app.whenReady().then(async () => {
       try {
         const { run } = require('./e2e');
         const ok = await run(mainWindow);
+        // Dispose guest targets and their sessions before forced test exit.
+        // Exiting with live capture/debugger work can crash Chromium on Windows.
+        await mainWindow.webContents.executeJavaScript(`(async () => {
+          for (const tab of [...state.tabs]) await closeTab(tab.id, { silent: true });
+        })()`);
         app.exit(ok ? 0 : 1);
       } catch (e) {
         try {

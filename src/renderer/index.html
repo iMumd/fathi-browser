@@ -121,6 +121,13 @@
     </span>
   </div>
 
+  <div id="page-find" class="hidden" role="search" aria-label="Find in page">
+    <input id="page-find-input" type="search" data-i18n-ph="find.placeholder" placeholder="Find in page" aria-label="Find in page" autocomplete="off" />
+    <span id="page-find-count" role="status" aria-live="polite"></span>
+    <button id="page-find-prev" data-i18n-title="find.previous" aria-label="Previous match">↑</button>
+    <button id="page-find-next" data-i18n-title="find.next" aria-label="Next match">↓</button>
+    <button id="page-find-close" data-i18n-title="find.close" aria-label="Close find">×</button>
+  </div>
   <main id="view"><div id="device-frame" class="hidden"><div class="df-notch"></div></div></main>
 </div>
 
@@ -374,6 +381,7 @@
 
 <script src="i18n.js"></script>
 <script src="../shared/research.js"></script>
+<script src="../shared/shortcuts.js"></script>
 <script src="research-ui.js"></script>
 <script src="app.js"></script>
 </body>

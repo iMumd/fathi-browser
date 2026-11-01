@@ -11,6 +11,7 @@ Built with Electron and Chromium for Windows, Linux, and macOS.
 [Research guide](docs/research-workspace.md) ·
 [Identity audit](docs/identity-audit.md) ·
 [Interception and rules](docs/interception-and-rules.md) ·
+[Keyboard shortcuts](docs/keyboard-shortcuts.md) ·
 [Contribute](CONTRIBUTING.md) ·
 [Changelog](CHANGELOG.md)
 

@@ -54,28 +54,7 @@ const DEFAULTS = {
   matchReplace: [],
 
   // Keyboard shortcuts. Value is a canonical combo such as "Ctrl+Shift+T".
-  shortcuts: {
-    newTab: 'Ctrl+T',
-    closeTab: 'Ctrl+W',
-    reopenTab: 'Ctrl+Shift+T',
-    nextTab: 'Ctrl+Tab',
-    prevTab: 'Ctrl+Shift+Tab',
-    focusAddress: 'Ctrl+L',
-    reload: 'Ctrl+R',
-    hardReload: 'Ctrl+Shift+R',
-    back: 'Alt+Left',
-    forward: 'Alt+Right',
-    toggleDevice: 'Ctrl+Shift+M',
-    toggleProxy: 'Ctrl+Shift+P',
-    toggleInterceptor: 'Ctrl+Shift+I',
-    openGuide: 'Ctrl+/',
-    settings: 'Ctrl+,',
-    fingerprint: 'Ctrl+D',
-    zoomIn: 'Ctrl+=',
-    zoomOut: 'Ctrl+-',
-    zoomReset: 'Ctrl+0',
-    quit: 'Ctrl+Q'
-  },
+  shortcuts: { ...require('../shared/shortcuts').defaults },
 
   wallpapers: {
     source: 'unsplash',      // 'unsplash' (bundled, offline-safe) | 'custom' | 'none'
