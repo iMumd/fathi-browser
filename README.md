@@ -43,6 +43,11 @@ Live rules cover header values and supported text bodies, including when
 manual interception is off. See the [rule limits](docs/interception-and-rules.md)
 before relying on a transformation.
 
+The [keyboard profile](docs/keyboard-shortcuts.md) includes new private windows,
+session bookmarks/history, downloads and tab search. New tabs focus the address
+bar immediately. Browsing records stay in memory; bookmark/history data is not
+made persistent by these controls.
+
 Research tools do not automatically crawl, scan, or attack targets. Passive
 notes do not issue extra requests and are not confirmed vulnerability reports.
 JWT inspection decodes claims; it does not verify their signature.

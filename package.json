@@ -25,7 +25,7 @@
   "license": "MIT",
   "main": "src/main/main.js",
   "scripts": {
-    "test": "node tools/check-syntax.js && node --test tools/test-research.js tools/test-network.js tools/test-identity.js tools/test-certificate.js tools/test-update-fallback.js tools/test-intercept.js tools/test-shortcuts.js tools/test-system-info.js && node tools/test-rules.js",
+    "test": "node tools/check-syntax.js && node --test tools/test-research.js tools/test-network.js tools/test-identity.js tools/test-certificate.js tools/test-update-fallback.js tools/test-intercept.js tools/test-shortcuts.js tools/test-system-info.js tools/test-session-library.js tools/test-downloads.js tools/test-window-launcher.js tools/test-settings-shortcuts.js && node tools/test-rules.js",
     "start": "electron .",
     "icons": "node tools/make-icons.js && node tools/make-installer-art.js",
     "dist:win": "electron-builder --win nsis portable --x64 --publish never",

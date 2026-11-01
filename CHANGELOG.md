@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Focus new tabs before session setup and preserve immediately typed search text,
+  including explicit new-tab URLs and native toolbar clicks.
+- Add real independent private windows, session bookmarks/history, temporary
+  download management, process metrics, tab search and explicit session clearing.
+- Expand the Chrome-style profile with tab reordering, source viewing, local-file
+  opening, search/toolbar focus, platform aliases and legacy-default migration.
 - Unify Chrome-style keyboard shortcuts across browser chrome and page input,
   including tab cycling/selection, real URL reopening with a fresh identity,
   find, zoom, reload, fullscreen, page save/print and DevTools.
