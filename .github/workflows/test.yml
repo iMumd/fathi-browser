@@ -42,7 +42,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           $executable = (Resolve-Path ./node_modules/electron/dist/electron.exe).Path
-          $app = Start-Process -FilePath $executable -ArgumentList '.', '--fathi-e2e', '--fathi-identity-audit', '--fathi-intercept-audit' -PassThru -Wait
+          $app = Start-Process -FilePath $executable -ArgumentList '.', '--fathi-e2e', '--fathi-identity-audit', '--fathi-intercept-audit', '--fathi-browser-audit' -PassThru -Wait
           Get-Content e2e-result.txt
           if ($app.ExitCode -ne 0) { exit $app.ExitCode }
       - name: Preserve browser audit reports

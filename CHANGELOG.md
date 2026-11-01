@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Unify Chrome-style keyboard shortcuts across browser chrome and page input,
+  including tab cycling/selection, real URL reopening with a fresh identity,
+  find, zoom, reload, fullscreen, page save/print and DevTools.
+- Improve tab focus/background opening and close responsiveness; preserve zoom
+  across document readiness and avoid background-load progress flicker.
+- Report actual OS/build and separate machine/application architectures in
+  About, with consistent runtime diagnostics and development/packaged status.
 - Keep the interception queue visible while editing, preserve per-request
   drafts and advance selection after Forward or Drop.
 - Apply all four rule targets to live traffic, including body rules with
